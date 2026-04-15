@@ -6,7 +6,7 @@ import { API_ENDPOINTS } from "@/app/lib/api";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Link from "next/link";
-import InventoryTransferModal from "./transfer/inventoryTransfer";
+import InventoryTransfer from "./transfer/inventoryTransfer";
 
 type variant = {
   name?: string;
@@ -28,15 +28,21 @@ export default function InventoryPage() {
   const [inventory, setInventory] = useState<Inventory[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [pagination, setPagination] = useState({ page: 1, limit: 20 });
   const vendor = useSelector((state: RootState) => state.auth.vendor);
   const [selectedImage, setSelectedImage] = useState("");
   const [selectedSku, setSelectedSku] = useState("");
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
 
 
+  const openTransferModal = () => {
+    setIsTransferModalOpen(true);
+  }
 
+  const closeTransferModal = () => {
+    setIsTransferModalOpen(false);
+  }
 
   const fetchInventory = async () => {
     setLoading(true);
@@ -95,6 +101,9 @@ export default function InventoryPage() {
     );
   }
 
+
+  {}
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 py-8 px-4 sm:px-6 lg:px-8 transition-colors">
       <div className="max-w-7xl mx-auto">
@@ -113,7 +122,7 @@ export default function InventoryPage() {
           </Link>
           <button
             type="button"
-            onClick={() => setIsTransferModalOpen(true)}
+            onClick={openTransferModal}
             className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-black dark:bg-white text-white dark:text-black text-sm font-medium hover:opacity-90"
           >
             Create Transfer
@@ -289,16 +298,15 @@ export default function InventoryPage() {
         </div>
       )}
 
-      <InventoryTransferModal
-        isOpen={isTransferModalOpen}
-        onClose={() => setIsTransferModalOpen(false)}
-        inventory={inventory}
-        vendorId={vendor?._id || ""}
-        onCreated={() => {
-          setIsTransferModalOpen(false);
-          fetchInventory();
-        }}
-      />
+
+      {isTransferModalOpen && (
+        <InventoryTransfer
+          isOpen={isTransferModalOpen}
+          onClose={closeTransferModal}
+        />
+      )}
+
+
     </div>
   );
 }

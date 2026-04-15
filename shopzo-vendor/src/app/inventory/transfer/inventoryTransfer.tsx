@@ -1,327 +1,261 @@
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
+import { API_ENDPOINTS } from "@/app/lib/api";
+import { RootState } from "@/store";
+import { useSelector } from "react-redux";
 
-type InventoryVariant = {
-  _id?: string;
-  sku?: string;
+type variant = {
   name?: string;
+  sku?: string;
+  images?: { url?: string }[];
 };
 
-type InventoryItem = {
+type Inventory = {
   _id: string;
   quantity: number;
   reserved?: number;
   available?: number;
-  variant?: InventoryVariant;
-};
-
-type Warehouse = {
-  _id: string;
-  name: string;
+  variant?: variant;
 };
 
 type TransferRow = {
-  variantId: string;
-  quantity: number;
+  inventoryId: string;
+  quantity: string;
 };
 
-type Props = {
-  isOpen: boolean;
-  onClose: () => void;
-  inventory: InventoryItem[];
-  vendorId: string;
-  onCreated?: () => void;
-};
+const InventoryTransfer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
 
-const INVENTORY_TRANSFER_CREATE_API = "http://localhost:8000/api/inventoryTransfer/create";
-const WAREHOUSE_LIST_API = "http://localhost:8000/api/warehouse/list";
+  const vendor = useSelector((state: RootState) => state.auth.vendor);
+  const [inventory, setInventory] = useState<Inventory[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [transferRows, setTransferRows] = useState<TransferRow[]>([{ inventoryId: "", quantity: "" }]);
 
-export default function InventoryTransferModal({
-  isOpen,
-  onClose,
-  inventory,
-  vendorId,
-  onCreated,
-}: Props) {
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [toId, setToId] = useState("");
-  const [rows, setRows] = useState<TransferRow[]>([{ variantId: "", quantity: 1 }]);
-  const [loadingWarehouses, setLoadingWarehouses] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  const variantOptions = useMemo(() => {
-    return inventory
-      .map((inv) => ({
-        variantId: inv.variant?._id ?? "",
-        label: inv.variant?.sku || inv.variant?.name || inv.variant?._id || "Unknown",
-        available: inv.available ?? Math.max(0, inv.quantity - (inv.reserved ?? 0)),
-      }))
-      .filter((v) => !!v.variantId);
-  }, [inventory]);
-
-  const getAvailableForVariant = (variantId: string) => {
-    const match = variantOptions.find((v) => v.variantId === variantId);
-    return match?.available ?? 0;
-  };
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const loadWarehouses = async () => {
-      try {
-        setLoadingWarehouses(true);
-        setError("");
-        const response = await axios.get(WAREHOUSE_LIST_API, { withCredentials: true });
-        if (response.data?.success) {
-          setWarehouses(response.data.warehouses || []);
-        } else {
-          setError(response.data?.message || "Failed to load warehouses");
-        }
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Failed to load warehouses";
-        setError(message);
-      } finally {
-        setLoadingWarehouses(false);
-      }
-    };
-
-    loadWarehouses();
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setToId("");
-      setRows([{ variantId: "", quantity: 1 }]);
-      setError("");
-      setSuccess("");
-    }
-  }, [isOpen]);
-
-  const addRow = () => {
-    setRows((prev) => [...prev, { variantId: "", quantity: 1 }]);
-  };
-
-  const removeRow = (index: number) => {
-    setRows((prev) => {
-      if (prev.length === 1) return prev;
-      return prev.filter((_, i) => i !== index);
-    });
-  };
-
-  const updateRow = (index: number, key: keyof TransferRow, value: string | number) => {
-    setRows((prev) =>
-      prev.map((row, i) => (i === index ? { ...row, [key]: value } : row))
-    );
-  };
-
-  const validateForm = () => {
-    if (!vendorId) return "Vendor is required";
-    if (!toId) return "Please select warehouse";
-    if (rows.length === 0) return "Please add at least one item";
-
-    const seen = new Set<string>();
-    for (const row of rows) {
-      if (!row.variantId) return "Please select variant for each row";
-      if (!Number.isInteger(row.quantity) || row.quantity <= 0) {
-        return "Quantity must be a positive whole number";
-      }
-
-      if (seen.has(row.variantId)) return "Duplicate variant is not allowed";
-      seen.add(row.variantId);
-
-      const available = getAvailableForVariant(row.variantId);
-      if (row.quantity > available) {
-        return "Quantity cannot be more than available stock";
-      }
-    }
-
-    return "";
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
+  const fetchInventory = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setSubmitting(true);
-      const payload = {
-        variantsData: rows.map((r) => ({
-          variantId: r.variantId,
-          quantity: Number(r.quantity),
-        })),
-        fromType: "vendor",
-        fromId: vendorId,
-        toType: "warehouse",
-        toId,
-      };
+      if (!vendor?._id) {
+        setError("Vendor not found");
+        return;
+      }
 
-      const response = await axios.post(INVENTORY_TRANSFER_CREATE_API, payload, {
+      const response = await axios.get(API_ENDPOINTS.INVENTORY_LIST, {
+        params: { vendorId: vendor?._id },
         withCredentials: true,
       });
 
-      if (response.data?.success) {
-        setSuccess("Transfer request created");
-        onCreated?.();
-      } else {
-        setError(response.data?.message || "Failed to create transfer request");
+      if (response.data.success) {
+        setInventory(response.data.inventory);
       }
-    } catch (err: unknown) {
-      const message =
-        axios.isAxiosError(err)
-          ? err.response?.data?.message || err.message
-          : err instanceof Error
-            ? err.message
-            : "Failed to create transfer request";
-      setError(message);
-    } finally {
-      setSubmitting(false);
+    } catch (error: unknown) {
+      console.error(error);
+      setError(error instanceof Error ? error.message : "Failed to fetch inventory");
     }
+    finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchInventory();
+  }, []);
+
+  const selectedInventoryIds = transferRows
+    .map((row) => row.inventoryId)
+    .filter((id) => id !== "");
+
+  const selectedInventoryWithQuantity = transferRows
+    .map((row, rowIndex) => {
+      if (row.inventoryId === "") return null;
+      const selectedInv = inventory.find((inv) => inv._id === row.inventoryId);
+      if (!selectedInv) return null;
+      return {
+        rowIndex,
+        inventory: selectedInv,
+        quantity: row.quantity === "" ? 0 : Number(row.quantity),
+      };
+    })
+    .filter((item): item is { rowIndex: number; inventory: Inventory; quantity: number } => item !== null);
+
+  const handleInventoryChange = (index: number, inventoryId: string) => {
+    setTransferRows((prev) =>
+      prev.map((row, i) => {
+        if (i !== index) return row;
+        if (!inventoryId) return { inventoryId: "", quantity: "" };
+
+        const selectedInv = inventory.find((inv) => inv._id === inventoryId);
+        if (!selectedInv) return { ...row, inventoryId };
+
+        if (row.quantity === "") return { ...row, inventoryId };
+
+        const parsedQty = Number(row.quantity);
+        const clampedQty = Math.min(Math.max(parsedQty, 1), selectedInv.quantity);
+        return { inventoryId, quantity: String(clampedQty) };
+      })
+    );
   };
 
-  if (!isOpen) return null;
+  const handleQuantityChange = (index: number, quantityValue: string) => {
+    setTransferRows((prev) =>
+      prev.map((row, i) => {
+        if (i !== index) return row;
+        if (quantityValue === "") return { ...row, quantity: "" };
+
+        const parsedQty = Number(quantityValue);
+        if (Number.isNaN(parsedQty)) return row;
+
+        const selectedInv = inventory.find((inv) => inv._id === row.inventoryId);
+        const maxQty = selectedInv?.quantity ?? Number.MAX_SAFE_INTEGER;
+        const safeMaxQty = Math.max(maxQty, 0);
+        const clampedQty = Math.min(Math.max(parsedQty, 1), safeMaxQty);
+        return { ...row, quantity: String(clampedQty) };
+      })
+    );
+  };
+
+  const handleAddInventoryRow = () => {
+    setTransferRows((prev) => [...prev, { inventoryId: "", quantity: "" }]);
+  };
+
+  const handleRemoveInventoryRow = (index: number) => {
+    setTransferRows((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div className="text-lg text-gray-600 dark:text-gray-400">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div className="text-lg text-red-600 dark:text-red-400">Error: {error}</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="w-full max-w-3xl rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700">
-        <div className="px-5 py-4 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Create Transfer Request
-          </h2>
+    <div className={`fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center px-4 py-6 ${isOpen ? "block" : "hidden"}`}>
+      <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700/70 bg-slate-900/95 p-5 md:p-7 space-y-6 shadow-[0_24px_64px_rgba(0,0,0,0.55)] text-slate-100">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-700/70 pb-4">
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight">Inventory Transfer</h2>
+            <p className="text-sm text-slate-400 mt-1">Pick unique inventory items and define quantity per row.</p>
+          </div>
           <button
-            type="button"
+            className="text-xs font-medium px-3 py-1.5 rounded-md border border-slate-600 bg-slate-800 hover:bg-slate-700 transition-colors"
             onClick={onClose}
-            className="px-2 py-1 rounded text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800"
           >
             Close
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {error ? (
-            <div className="rounded-md border border-red-300 bg-red-50 text-red-700 text-sm px-3 py-2">
-              {error}
-            </div>
-          ) : null}
+        <div className="space-y-3.5">
+          {transferRows.map((row, i) => {
+            const availableInventory = inventory.filter(
+              (inv) =>
+                (inv._id === row.inventoryId || !selectedInventoryIds.includes(inv._id)) &&
+                (inv.quantity > 0 || inv._id === row.inventoryId)
+            );
+            const selectedInv = inventory.find((inv) => inv._id === row.inventoryId);
 
-          {success ? (
-            <div className="rounded-md border border-green-300 bg-green-50 text-green-700 text-sm px-3 py-2">
-              {success}
-            </div>
-          ) : null}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-              Select Warehouse
-            </label>
-            <select
-              value={toId}
-              onChange={(e) => setToId(e.target.value)}
-              disabled={loadingWarehouses}
-              className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
-            >
-              <option value="">{loadingWarehouses ? "Loading..." : "Choose warehouse"}</option>
-              {warehouses.map((w) => (
-                <option key={w._id} value={w._id}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            {rows.map((row, index) => {
-              const available = getAvailableForVariant(row.variantId);
-              return (
-                <div
-                  key={index}
-                  className="grid grid-cols-1 md:grid-cols-12 gap-2 rounded-lg border border-gray-200 dark:border-slate-700 p-3"
-                >
-                  <div className="md:col-span-7">
-                    <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">
-                      Variant
-                    </label>
-                    <select
-                      value={row.variantId}
-                      onChange={(e) => updateRow(index, "variantId", e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
-                    >
-                      <option value="">Choose variant</option>
-                      {variantOptions.map((v) => (
-                        <option key={v.variantId} value={v.variantId}>
-                          {v.label} (Available: {v.available})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="md:col-span-3">
-                    <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">
-                      Quantity
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={row.quantity}
-                      onChange={(e) => updateRow(index, "quantity", Number(e.target.value))}
-                      className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
-                    />
-                    {row.variantId ? (
-                      <p className="mt-1 text-[11px] text-gray-500">Available: {available}</p>
-                    ) : null}
-                  </div>
-
-                  <div className="md:col-span-2 flex items-end">
-                    <button
-                      type="button"
-                      onClick={() => removeRow(index)}
-                      className="w-full rounded-lg border border-red-300 text-red-600 px-3 py-2 text-sm disabled:opacity-50"
-                      disabled={rows.length === 1}
-                    >
-                      Remove
-                    </button>
-                  </div>
+            return (
+              <div key={i} className="grid grid-cols-1 md:grid-cols-12 gap-3.5 rounded-xl p-4 border border-slate-700/80 bg-slate-800/80">
+                <div className="md:col-span-7">
+                  <label className="text-[11px] uppercase tracking-wide font-semibold text-slate-400 mb-1.5 block">Inventory</label>
+                  <select
+                    className="w-full h-10 rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/70 focus:border-blue-500"
+                    value={row.inventoryId}
+                    onChange={(e) => handleInventoryChange(i, e.target.value)}
+                  >
+                    <option value="">Select inventory</option>
+                    {availableInventory.map((inv) => (
+                      <option key={inv._id} value={inv._id}>
+                        {inv.variant?.sku ?? "—"} (stock: {inv.quantity})
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              );
-            })}
-          </div>
 
+                <div className="md:col-span-3">
+                  <label className="text-[11px] uppercase tracking-wide font-semibold text-slate-400 mb-1.5 block">Quantity</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={selectedInv?.quantity}
+                    disabled={!row.inventoryId}
+                    className="w-full h-10 rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/70 focus:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                    placeholder="0"
+                    value={row.quantity}
+                    onChange={(e) => handleQuantityChange(i, e.target.value)}
+                  />
+                  {selectedInv && (
+                    <p className="text-xs text-slate-400 mt-1.5">
+                      Max: {selectedInv.quantity}
+                    </p>
+                  )}
+                </div>
+
+                <div className="md:col-span-2 flex items-end">
+                  <button
+                    type="button"
+                    className="w-full h-10 rounded-lg px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    disabled={transferRows.length === 1}
+                    onClick={() => handleRemoveInventoryRow(i)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex justify-start">
           <button
             type="button"
-            onClick={addRow}
-            className="rounded-lg border border-gray-300 dark:border-slate-600 px-3 py-2 text-sm"
+            className="h-10 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 rounded-lg transition-colors"
+            onClick={handleAddInventoryRow}
           >
-            + Add Variant
+            Add Inventory
           </button>
+        </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-gray-300 dark:border-slate-600 px-4 py-2 text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="rounded-lg bg-black text-white dark:bg-white dark:text-black px-4 py-2 text-sm disabled:opacity-50"
-            >
-              {submitting ? "Creating..." : "Create Transfer"}
-            </button>
-          </div>
-        </form>
+        <div className="border-t border-slate-700/70 pt-5">
+          <h3 className="font-semibold text-base mb-3">Selected Inventory</h3>
+          {selectedInventoryWithQuantity.length === 0 ? (
+            <p className="text-sm text-slate-400">No inventory selected yet.</p>
+          ) : (
+            <div className="space-y-2.5">
+              {selectedInventoryWithQuantity.map((item) => (
+                <div
+                  key={`${item.inventory._id}-${item.rowIndex}`}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2.5"
+                >
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-slate-100">{item.inventory.variant?.sku ?? "—"}</span>
+                    <span className="text-xs text-slate-400">Qty: {item.quantity || 0}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="text-xs font-medium px-2.5 py-1.5 rounded-md bg-rose-600 hover:bg-rose-500 text-white transition-colors"
+                    onClick={() => handleRemoveInventoryRow(item.rowIndex)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
-  );
-}
+  )
+
+};
+
+export default InventoryTransfer;
