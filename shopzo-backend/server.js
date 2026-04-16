@@ -34,10 +34,25 @@ import inventoryTransferRouter from "./routes/transferInventory.js";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://localhost:3002",
+  "http://127.0.0.1:3002",
+  "http://44.220.163.19:3000",
+  "http://44.220.163.19:3001",
+  "http://44.220.163.19:3002",
+];
 
 app.use(
   cors({
-    origin: "*",
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
   })
 );
