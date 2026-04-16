@@ -6,6 +6,17 @@
 */.next
 */build
 */dist
+.gitignore
+*/.gitignore
 
+node_modules/
 
+# logs
+*.log
+
+# system
+.DS_Store
+
+# pem files (VERY IMPORTANT 🔥)
+*.pem
 
