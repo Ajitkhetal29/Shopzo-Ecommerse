@@ -1,4 +1,8 @@
-const API_BASE_URL = "http://localhost:8000/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+
+if (!API_BASE_URL) {
+  throw new Error("Missing NEXT_PUBLIC_API_URL. Set it in your .env file.");
+}
 
 export const API_ENDPOINTS = {
   // auth

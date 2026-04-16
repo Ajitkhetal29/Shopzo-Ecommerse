@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
-dotenv.config();
+const envFile = process.env.NODE_ENV === "production" ? ".env.production" : ".env.local";
+dotenv.config({ path: envFile });
 
 // Validate required environment variables
 if (!process.env.JWT_SECRET) {
@@ -36,7 +37,7 @@ const PORT = process.env.PORT || 8000;
 
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://127.0.0.1:3002"],
+    origin: "*",
     credentials: true,
   })
 );
