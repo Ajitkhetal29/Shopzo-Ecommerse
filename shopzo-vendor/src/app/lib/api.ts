@@ -29,4 +29,13 @@ export const API_ENDPOINTS = {
     CREATE_INVENTORY: `${API_BASE_URL}/inventory/create`,
     UPDATE_INVENTORY: `${API_BASE_URL}/inventory/update`,
     DELETE_INVENTORY: `${API_BASE_URL}/inventory/delete`,
+
+
+    GET_WAREHOUSES: `${API_BASE_URL}/warehouse/list`,
+
+
+
+    // inventory transfer
+    CREATE_INVENTORY_TRANSFER: `${API_BASE_URL}/inventoryTransfer/create`,
+    GET_INVENTORY_TRANSFER_REQUESTS: `${API_BASE_URL}/inventoryTransfer/list`,
 };

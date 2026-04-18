@@ -12,7 +12,7 @@ import {
 const warehouseRouter = express.Router();
 
 warehouseRouter.post("/create", adminAuth, createWarehouse);
-warehouseRouter.get("/list", adminAuth, getWarehouses);
+warehouseRouter.get("/list", getWarehouses);
 warehouseRouter.put("/update/:id", adminAuth, updateWarehouse);
 warehouseRouter.delete("/delete/:id", adminAuth, deleteWarehouse);
 warehouseRouter.post("/:id/members", adminAuth, addWarehouseMember);
