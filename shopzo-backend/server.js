@@ -31,7 +31,7 @@ import dashboardRouter from "./routes/dashboard.js";
 import inventoryRouter from "./routes/inventory.js";
 import { authMiddleware, vendorAuthMiddleware } from "./middleware/auth.js";
 import inventoryTransferRouter from "./routes/transferInventory.js";
-
+import helmet from "helmet";
 const app = express();
 const PORT = process.env.PORT || 8000;
 const allowedOrigins = [
@@ -42,6 +42,8 @@ const allowedOrigins = [
   "http://54.163.16.133:3000",
   "http://54.163.16.133:3001",
   "http://54.163.16.133:3002",
+ "https://admin.shopzo.store",
+    "https://vendor.shopzo.store"	
 ];
 
 app.use(
@@ -54,6 +56,11 @@ app.use(
       callback(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
+  })
+);
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
   })
 );
 app.use(express.json());
