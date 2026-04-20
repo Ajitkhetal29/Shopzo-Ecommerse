@@ -110,6 +110,43 @@ const inventoryTransferSchema = new mongoose.Schema(
       default: "initiated",
       index: true,
     },
+    statusHistory: {
+      type: [
+        {
+          status: {
+            type: String,
+            enum: [
+              "initiated",
+              "approved",
+              "rejected",
+              "cancelled",
+              "shipped",
+              "delivered",
+              "issue_reported",
+              "completed",
+            ],
+            required: true,
+          },
+          changedAt: {
+            type: Date,
+            default: Date.now,
+          },
+          changedByType: {
+            type: String,
+            enum: ["vendor", "warehouse"],
+          },
+          changedByModel: {
+            type: String,
+            enum: ["Vendor", "Warehouse"],
+          },
+          changedById: {
+            type: mongoose.Schema.Types.ObjectId,
+            refPath: "changedByModel",
+          },
+        },
+      ],
+      default: [],
+    },
 
     initiatedAt: { type: Date, default: Date.now },
     approvedAt: Date,
@@ -134,6 +171,12 @@ inventoryTransferSchema.pre("validate", function () {
 
   this.fromModel = this.fromType === "vendor" ? "Vendor" : "Warehouse";
   this.toModel = this.toType === "vendor" ? "Vendor" : "Warehouse";
+
+  this.statusHistory.forEach((history) => {
+    if (history.changedByType && !history.changedByModel) {
+      history.changedByModel = history.changedByType === "vendor" ? "Vendor" : "Warehouse";
+    }
+  });
 
   // Validate each item
   this.items.forEach((item) => {
@@ -161,6 +204,29 @@ inventoryTransferSchema.pre("validate", function () {
       }
     }
   });
+});
+
+inventoryTransferSchema.pre("save", function () {
+  if (this.isNew && this.statusHistory.length === 0) {
+    this.statusHistory.push({
+      status: this.status,
+      changedAt: this.initiatedAt || new Date(),
+      changedByType: this.fromType,
+      changedByModel: this.fromType === "vendor" ? "Vendor" : "Warehouse",
+      changedById: this.fromId,
+    });
+    return;
+  }
+
+  if (this.isModified("status")) {
+    this.statusHistory.push({
+      status: this.status,
+      changedAt: new Date(),
+      changedByType: this.fromType,
+      changedByModel: this.fromType === "vendor" ? "Vendor" : "Warehouse",
+      changedById: this.fromId,
+    });
+  }
 });
 
 export default mongoose.model("InventoryTransfer", inventoryTransferSchema);

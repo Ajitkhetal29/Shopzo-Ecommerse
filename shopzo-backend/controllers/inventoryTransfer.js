@@ -111,6 +111,15 @@ const createInventoryTransferRequest = async (req, res) => {
             toId,
             status: "initiated",
             initiatedAt: new Date(),
+            statusHistory: [
+                {
+                    status: "initiated",
+                    changedAt: new Date(),
+                    changedByType: fromType,
+                    changedByModel: fromType === "vendor" ? "Vendor" : "Warehouse",
+                    changedById: fromId,
+                },
+            ],
         });
 
         return res.status(201).json({
@@ -238,10 +247,60 @@ const getInventoryTransferRequests = async (req, res) => {
     }
 };
 
+const getInventoryTransferRequestById = async (req, res) => {
 
+    try {
+        const { id } = req.query;
+        if (!id) {
+            return res.status(400).json({
+                success: false,
+                message: "Inventory transfer request id is required",
+            });
+        }
 
+        const transfer = await inventoryTransfer
+            .findById(id)
+            .select("items fromType fromModel fromId toType toModel toId status statusHistory initiatedAt")
+            .populate("fromId", "name")
+            .populate("toId", "name")
+            .populate("items.variant", "sku")
+            .populate("statusHistory.changedById", "name")
+            .lean();
+        if (!transfer) {
+            return res.status(404).json({
+                success: false,
+                message: "Inventory transfer request not found",
+            });
+        }
 
+        if (!transfer.statusHistory || transfer.statusHistory.length === 0) {
+            transfer.statusHistory = [
+                {
+                    status: transfer.status,
+                    changedAt: transfer.initiatedAt || new Date(),
+                    changedByType: transfer.fromType,
+                    changedByModel: transfer.fromType === "vendor" ? "Vendor" : "Warehouse",
+                    changedById: transfer.fromId,
+                },
+            ];
+        }
 
+        return res.status(200).json({
+            success: true,
+            message: "Inventory transfer request fetched successfully",
+            transfer,
+        });
+    } catch (error) {
+        console.error("Get inventory transfer request by id error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Internal server error",
+        });
+    }
+};
 
-
-export { createInventoryTransferRequest, getInventoryTransferRequests };
+export {
+    createInventoryTransferRequest,
+    getInventoryTransferRequests,
+    getInventoryTransferRequestById,
+};

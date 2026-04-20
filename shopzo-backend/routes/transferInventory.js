@@ -1,9 +1,9 @@
 import express from 'express'
-import { createInventoryTransferRequest, getInventoryTransferRequests } from '../controllers/inventoryTransfer.js';
+import { createInventoryTransferRequest, getInventoryTransferRequests , getInventoryTransferRequestById} from '../controllers/inventoryTransfer.js';
 
 const inventoryTransferRouter = express.Router();
 
 inventoryTransferRouter.post('/create', createInventoryTransferRequest)
 inventoryTransferRouter.get('/list', getInventoryTransferRequests)
-
-export default inventoryTransferRouter
+inventoryTransferRouter.get('/getById', getInventoryTransferRequestById)
+export default inventoryTransferRouter  

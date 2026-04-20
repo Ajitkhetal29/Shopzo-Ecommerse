@@ -38,4 +38,5 @@ export const API_ENDPOINTS = {
     // inventory transfer
     CREATE_INVENTORY_TRANSFER: `${API_BASE_URL}/inventoryTransfer/create`,
     GET_INVENTORY_TRANSFER_REQUESTS: `${API_BASE_URL}/inventoryTransfer/list`,
+    GET_INVENTORY_TRANSFER_REQUEST_BY_ID: `${API_BASE_URL}/inventoryTransfer/getById`,
 };
