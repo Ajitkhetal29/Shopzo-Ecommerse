@@ -65,10 +65,16 @@ const inventoryTransferSchema = new mongoose.Schema(
       required: true,
     },
 
+    fromModel: {
+      type: String,
+      enum: ["Vendor", "Warehouse"],
+      required: true,
+    },
+
     fromId: {
       type: mongoose.Schema.Types.ObjectId,
+      refPath: "fromModel",
       required: true,
-      index: true,
     },
 
     toType: {
@@ -77,10 +83,16 @@ const inventoryTransferSchema = new mongoose.Schema(
       required: true,
     },
 
+    toModel: {
+      type: String,
+      enum: ["Vendor", "Warehouse"],
+      required: true,
+    },
+
     toId: {
       type: mongoose.Schema.Types.ObjectId,
+      refPath: "toModel",
       required: true,
-      index: true,
     },
 
     status: {
@@ -119,6 +131,9 @@ inventoryTransferSchema.pre("validate", function () {
   ) {
     throw new Error("From and To location cannot be same");
   }
+
+  this.fromModel = this.fromType === "vendor" ? "Vendor" : "Warehouse";
+  this.toModel = this.toType === "vendor" ? "Vendor" : "Warehouse";
 
   // Validate each item
   this.items.forEach((item) => {

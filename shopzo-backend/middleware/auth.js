@@ -56,4 +56,31 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-export { authMiddleware, vendorAuthMiddleware };
+const warehouseAuthMiddleware = (req, res, next) => {
+  try {
+    const token = req.cookies.token;
+    if (!token) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const decoded = verifyToken(token);
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ success: false, message: "Invalid token" });
+    }
+
+    if (decoded.panel !== "warehouse") {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden: warehouse access required",
+      });
+    }
+
+    req.warehouseUser = decoded;
+    next();
+  } catch (error) {
+    console.error("Warehouse auth middleware error:", error);
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+};
+
+export { authMiddleware, vendorAuthMiddleware, warehouseAuthMiddleware };

@@ -1,6 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import axios from "axios";
 import { API_ENDPOINTS } from "@/lib/api";
 import { toast } from "react-toastify";
@@ -31,6 +31,8 @@ export default function AddWarehousePage() {
   const [formdata, setFormdata] = useState({
     name: "",
     contactNumber: "",
+    email: "",
+    password: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingAddress, setIsLoadingAddress] = useState(false);
@@ -53,8 +55,8 @@ export default function AddWarehousePage() {
     if (isSubmitting) return;
 
     // Validation
-    if (!formdata.name || !formdata.contactNumber) {
-      toast.error("Please fill in name and contact number");
+    if (!formdata.name || !formdata.contactNumber || !formdata.password) {
+      toast.error("Please fill in name, contact number, and password");
       return;
     }
     if (!location) {
@@ -71,6 +73,8 @@ export default function AddWarehousePage() {
       const warehouseData = {
         name: formdata.name,
         contactNumber: formdata.contactNumber,
+        email: formdata.email.trim() || undefined,
+        password: formdata.password,
         location: {
           lat: location.lat,
           lng: location.lng,
@@ -95,9 +99,13 @@ export default function AddWarehousePage() {
       } else {
         toast.error(response.data.message || "Failed to add warehouse");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Submit error:", error);
-      toast.error(error.response?.data?.message || "Error adding warehouse. Please try again.");
+      const errorMessage =
+        axios.isAxiosError(error) && error.response?.data?.message
+          ? error.response.data.message
+          : "Error adding warehouse. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -204,6 +212,35 @@ export default function AddWarehousePage() {
                   onChange={handleChange}
                   className="w-full px-4 py-2.5 text-gray-900 dark:text-white bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm"
                   placeholder="10 digit mobile number"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Email (Optional)
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formdata.email}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2.5 text-gray-900 dark:text-white bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm"
+                  placeholder="warehouse@example.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Password <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  name="password"
+                  value={formdata.password}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2.5 text-gray-900 dark:text-white bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm"
+                  placeholder="Set warehouse login password"
                 />
               </div>
 

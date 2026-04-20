@@ -1,6 +1,6 @@
 "use client";
 import axios from "axios";
-import { API_ENDPOINTS } from "../lib/api";
+import { API_ENDPOINTS } from "@/lib/api";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { useEffect, useState } from "react";
@@ -19,22 +19,22 @@ type StatusTab = "all" | "active" | "completed" | "reject";
 
 const TransferInventoryPage = () => {
 
-    const vendor = useSelector((state: RootState) => state.auth.vendor);
+    const warehouse = useSelector((state: RootState) => state.auth.warehouse);
     const [inventoryTransferRequests, setInventoryTransferRequests] = useState<inventoryTransfer[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [selectedStatusTab, setSelectedStatusTab] = useState<StatusTab>("all");
 
     const fetchInventoryTransferRequests = async () => {
-        if (!vendor?._id) return;
+        if (!warehouse?._id) return;
         setLoading(true);
         setError(null);
         try {
             const response = await axios.get(API_ENDPOINTS.GET_INVENTORY_TRANSFER_REQUESTS, {
                 withCredentials: true,
                 params: {
-                    fromType: "vendor",
-                    fromId: vendor?._id,
+                    toType: "warehouse",
+                    toId: warehouse?._id,
                     status: selectedStatusTab,
                 }
             });
@@ -53,9 +53,9 @@ const TransferInventoryPage = () => {
     };
 
     useEffect(() => {
-        if (!vendor?._id) return;
+        if (!warehouse?._id) return;
         fetchInventoryTransferRequests();
-    }, [vendor?._id, selectedStatusTab]);
+    }, [warehouse?._id, selectedStatusTab]);
 
     const formatDate = (date?: string) => {
         if (!date) return "-";
