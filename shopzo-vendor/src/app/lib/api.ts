@@ -20,6 +20,7 @@ export const API_ENDPOINTS = {
     DELETE_PRODUCT: `${VENDOR_PRODUCT}/delete`,
     CREATE_VARIANT: `${VENDOR_PRODUCT}/variants/add`,
     GET_PRODUCT_VARIANTS: `${VENDOR_PRODUCT}/variants/product`,
+    GENERATE_UPLOAD_URL: `${API_BASE_URL}/upload/generate-upload-url`,
 
     UPDATE_VARIANT: `${VENDOR_PRODUCT}/variants/update`,
     DELETE_VARIANT: `${VENDOR_PRODUCT}/variants/delete`,

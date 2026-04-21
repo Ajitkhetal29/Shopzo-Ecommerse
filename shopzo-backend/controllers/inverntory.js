@@ -2,6 +2,43 @@ import Inventory from "../models/inventory.js";
 import Warehouse from "../models/warehouse.js";
 import Vendor from "../models/vendor.js";
 import Variant from "../models/variant.js";
+import { getViewUrl } from "../config/upload.js";
+
+const getKeyFromUrl = (url) => {
+    try {
+        const parsed = new URL(url);
+        return decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
+    } catch (_) {
+        return "";
+    }
+};
+
+const addViewUrlsToVariantImages = async (variant) => {
+    if (!variant || !Array.isArray(variant.images)) return variant;
+
+    const signedImages = [];
+    for (const img of variant.images) {
+        if (!img?.url) {
+            signedImages.push(img);
+            continue;
+        }
+
+        const key = getKeyFromUrl(img.url);
+        if (!key) {
+            signedImages.push(img);
+            continue;
+        }
+
+        try {
+            const viewUrl = await getViewUrl(key);
+            signedImages.push({ ...img, url: viewUrl });
+        } catch (_) {
+            signedImages.push(img);
+        }
+    }
+
+    return { ...variant, images: signedImages };
+};
 
 
 const createInventory = async (req, res) => {
@@ -128,10 +165,19 @@ const getInventory = async (req, res) => {
             Inventory.countDocuments(filter),
         ]);
 
+        const inventoryWithViewUrls = [];
+        for (const row of inventory) {
+            const signedVariant = await addViewUrlsToVariantImages(row.variant);
+            inventoryWithViewUrls.push({
+                ...row,
+                variant: signedVariant,
+            });
+        }
+
         return res.status(200).json({
             success: true,
             message: "Inventory fetched successfully",
-            inventory,
+            inventory: inventoryWithViewUrls,
             totalCount,
             page: parseInt(page, 10),
             limit: limitNum,
@@ -235,10 +281,15 @@ const getInventoryById = async (req, res) => {
                 message: "Inventory not found",
             });
         }
+        const signedVariant = await addViewUrlsToVariantImages(inventory.variant);
+
         return res.status(200).json({
             success: true,
             message: "Inventory fetched successfully",
-            inventory,
+            inventory: {
+                ...inventory.toObject(),
+                variant: signedVariant,
+            },
         });
     } catch (error) {
         console.error("Get inventory by id error:", error);

@@ -7,6 +7,7 @@ import axios from "axios";
 import { API_ENDPOINTS } from "@/lib/api";
 import { Product } from "@/store/types/product";
 import { toast } from "react-toastify";
+import { uploadFilesToS3 } from "@/lib/s3Upload";
 
 const MAX_IMAGES = 5;
 
@@ -95,17 +96,23 @@ const AddVariantPage = () => {
     setError("");
 
     try {
-      const formData = new FormData();
-      formData.append("productId", id);
-      formData.append("size", variant.size);
-      formData.append("color", variant.color);
-      formData.append("price", variant.price);
-      formData.append("sku", variant.sku);
-      images.forEach((file) => formData.append("images", file));
-
-      const res = await axios.post(API_ENDPOINTS.CREATE_VARIANT, formData, {
-        withCredentials: true,
+      const imageUrls = await uploadFilesToS3(images, "variant", {
+        productId: id,
+        sku: variant.sku,
       });
+
+      const res = await axios.post(
+        API_ENDPOINTS.CREATE_VARIANT,
+        {
+          productId: id,
+          size: variant.size,
+          color: variant.color,
+          price: variant.price,
+          sku: variant.sku,
+          imageUrls,
+        },
+        { withCredentials: true },
+      );
 
       if (!res.data.success) throw new Error(res.data.message || "Failed to create variant");
 

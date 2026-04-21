@@ -1,9 +1,10 @@
 import jwt from "jsonwebtoken";
+import "../config/env.js";
 
 // Validate JWT_SECRET on module load
 if (!process.env.JWT_SECRET) {
   console.error("⚠️  JWT_SECRET is not set in environment variables!");
-  console.error("Please set JWT_SECRET in your .env file");
+  console.error("Please set JWT_SECRET in your env file");
 }
 
 const generateToken = (payload) => {

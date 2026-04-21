@@ -6,6 +6,7 @@ import axios from "axios";
 import { API_ENDPOINTS } from "@/lib/api";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
+import { uploadFilesToS3 } from "@/lib/s3Upload";
 
 type Category = { _id: string; name: string };
 type Subcategory = { _id: string; name: string };
@@ -95,22 +96,23 @@ const AddProductPage = () => {
     setIsSubmitting(true);
 
     try {
-      const formDataToSend = new FormData();
-
-      formDataToSend.append("name", formData.name);
-      formDataToSend.append("description", formData.description);
-      formDataToSend.append("categoryId", formData.category);
-      if (formData.subcategory) formDataToSend.append("subcategoryId", formData.subcategory);
-      formDataToSend.append("slug", formData.slug);
-      formDataToSend.append("vendorId", "69a0366fc6c74de7d5fc1ec7");
-
-      images.forEach((img) => {
-        formDataToSend.append("images", img);
+      const imageUrls = await uploadFilesToS3(images, "product", {
+        productId: "69a0366fc6c74de7d5fc1ec7",
       });
 
-      const response = await axios.post(API_ENDPOINTS.CREATE_PRODUCT, formDataToSend, {
-        withCredentials: true,
-      });
+      const response = await axios.post(
+        API_ENDPOINTS.CREATE_PRODUCT,
+        {
+          name: formData.name,
+          description: formData.description,
+          categoryId: formData.category,
+          subcategoryId: formData.subcategory || undefined,
+          slug: formData.slug,
+          vendorId: "69a0366fc6c74de7d5fc1ec7",
+          imageUrls,
+        },
+        { withCredentials: true },
+      );
 
       if (response.data.success) {
         toast.success("Product created successfully", { autoClose: 3000 });
