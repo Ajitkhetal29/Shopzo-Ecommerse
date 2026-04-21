@@ -87,8 +87,11 @@ const EditWarehousePage = ({ }) => {
                     }
                 }
             })
-            .catch((err: any) => {
-                const errorMessage = err.response?.data?.message || "Failed to fetch warehouse";
+            .catch((err: unknown) => {
+                const errorMessage =
+                  axios.isAxiosError(err) && err.response?.data?.message
+                    ? err.response.data.message
+                    : "Failed to fetch warehouse";
                 setError(errorMessage);
             })
             .finally(() => {
@@ -149,6 +152,8 @@ const EditWarehousePage = ({ }) => {
             const updateData = {
                 name: formData.name,
                 contactNumber: formData.contactNumber,
+                email: formData.email?.trim() || undefined,
+                password: formData.password?.trim() || undefined,
                 location: {
                     lat: location.lat,
                     lng: location.lng,
@@ -174,8 +179,11 @@ const EditWarehousePage = ({ }) => {
             }
 
             setError("");
-        } catch (err: any) {
-            const errorMessage = err.response?.data?.message || err.message || "Failed to update warehouse";
+        } catch (err: unknown) {
+            const errorMessage =
+              axios.isAxiosError(err) && err.response?.data?.message
+                ? err.response.data.message
+                : "Failed to update warehouse";
             setError(errorMessage);
         } finally {
             setLoading(false);
@@ -303,6 +311,36 @@ const EditWarehousePage = ({ }) => {
                                         className="w-full px-4 py-2.5 text-gray-900 dark:text-white bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm"
                                         placeholder="10 digit mobile number"
                                         required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Email (Optional)
+                                    </label>
+                                    <input
+                                        type="email"
+                                        id="email"
+                                        name="email"
+                                        value={formData?.email || ''}
+                                        onChange={handleInputChange}
+                                        className="w-full px-4 py-2.5 text-gray-900 dark:text-white bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm"
+                                        placeholder="warehouse@example.com"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        New Password (Optional)
+                                    </label>
+                                    <input
+                                        type="password"
+                                        id="password"
+                                        name="password"
+                                        value={formData?.password || ''}
+                                        onChange={handleInputChange}
+                                        className="w-full px-4 py-2.5 text-gray-900 dark:text-white bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm"
+                                        placeholder="Leave blank to keep current password"
                                     />
                                 </div>
 

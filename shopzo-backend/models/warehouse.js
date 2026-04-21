@@ -12,6 +12,18 @@ const warehouseSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      unique: true,
+      sparse: true,
+    },
+    password: {
+      type: String,
+      required: true,
+      select: false,
+    },
 
     // 📍 SOURCE OF TRUTH
     location: {

@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import axios from "axios";
 import { API_ENDPOINTS } from "@/lib/api";
 import { toast } from "react-toastify";
+import { uploadFilesToS3 } from "@/lib/s3Upload";
 
 type Category = { _id: string; name: string };
 type Subcategory = { _id: string; name: string };
@@ -152,23 +153,24 @@ const EditProductPage = () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const formDataToSend = new FormData();
-      formDataToSend.append("name", formData.name);
-      formDataToSend.append("description", formData.description);
-      formDataToSend.append("categoryId", formData.category);
-      if (formData.subcategory) formDataToSend.append("subcategoryId", formData.subcategory);
-      formDataToSend.append("slug", formData.slug);
-      formDataToSend.append("vendorId", formData.vendor);
       const keepIndices = existingImages
         .map((_, i) => i)
         .filter((i) => !removedExistingIndices.has(i));
-      formDataToSend.append("keepImageIndices", JSON.stringify(keepIndices));
-      newImages.forEach((img) => formDataToSend.append("images", img));
+      const imageUrls = await uploadFilesToS3(newImages, "product", { productId: id });
 
       const response = await axios.put(
         `${API_ENDPOINTS.UPDATE_PRODUCT}/${id}`,
-        formDataToSend,
-        { withCredentials: true }
+        {
+          name: formData.name,
+          description: formData.description,
+          categoryId: formData.category,
+          subcategoryId: formData.subcategory || undefined,
+          slug: formData.slug,
+          vendorId: formData.vendor,
+          keepImageIndices: JSON.stringify(keepIndices),
+          imageUrls,
+        },
+        { withCredentials: true },
       );
 
       if (response.data.success) {

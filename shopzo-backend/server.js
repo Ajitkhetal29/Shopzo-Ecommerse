@@ -1,11 +1,9 @@
-import dotenv from "dotenv";
-const envFile = process.env.NODE_ENV === "production" ? ".env.production" : ".env.local";
-dotenv.config({ path: envFile });
+import "./config/env.js";
 
 // Validate required environment variables
 if (!process.env.JWT_SECRET) {
   console.error("❌ ERROR: JWT_SECRET is not set in environment variables!");
-  console.error("Please add JWT_SECRET to your .env file");
+  console.error("Please add JWT_SECRET to your env file");
   process.exit(1);
 }
 
@@ -31,6 +29,7 @@ import dashboardRouter from "./routes/dashboard.js";
 import inventoryRouter from "./routes/inventory.js";
 import { authMiddleware, vendorAuthMiddleware } from "./middleware/auth.js";
 import inventoryTransferRouter from "./routes/transferInventory.js";
+import uploadRouter from "./routes/upload.js";
 import helmet from "helmet";
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -93,6 +92,7 @@ app.use("/api/product", productRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/inventory", inventoryRouter);
 app.use("/api/inventoryTransfer", inventoryTransferRouter)
+app.use("/api/upload", uploadRouter);
 
 // this route is for home page and set user
 

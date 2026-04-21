@@ -8,6 +8,7 @@ import { API_ENDPOINTS } from "@/app/lib/api";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
+import { uploadProductImagesToS3 } from "@/lib/s3Upload";
 
 type Category = { _id: string; name: string };
 type Subcategory = { _id: string; name: string };
@@ -73,15 +74,19 @@ export default function AddProductPage() {
     if (isSubmitting || !vendor?._id) return;
     setIsSubmitting(true);
     try {
-      const fd = new FormData();
-      fd.append("name", formData.name);
-      fd.append("description", formData.description);
-      fd.append("categoryId", formData.category);
-      if (formData.subcategory) fd.append("subcategoryId", formData.subcategory);
-      fd.append("slug", formData.slug);
-      images.forEach((img) => fd.append("images", img));
-
-      const res = await axios.post(API_ENDPOINTS.CREATE_PRODUCT, fd, { withCredentials: true });
+      const imageUrls = await uploadProductImagesToS3(images, vendor._id);
+      const res = await axios.post(
+        API_ENDPOINTS.CREATE_PRODUCT,
+        {
+          name: formData.name,
+          description: formData.description,
+          categoryId: formData.category,
+          subcategoryId: formData.subcategory || undefined,
+          slug: formData.slug,
+          imageUrls,
+        },
+        { withCredentials: true },
+      );
       if (res.data.success) {
         toast.success("Product created");
         router.push("/products");

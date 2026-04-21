@@ -3,6 +3,7 @@ import axios from "axios";
 import { API_ENDPOINTS } from "@/app/lib/api";
 import { RootState } from "@/store";
 import { useSelector } from "react-redux";
+import { toast } from "react-toastify";
 
 type variant = {
   name?: string;
@@ -15,12 +16,34 @@ type Inventory = {
   quantity: number;
   reserved?: number;
   available?: number;
-  variant?: variant;
+  /** Populated from API as `{ _id, name, sku, images }` or raw ObjectId string */
+  variant?: (variant & { _id?: string }) | string;
 };
+
+function getVariantIdFromInventory(inv: Inventory): string {
+  const v = inv.variant;
+  if (!v) return "";
+  if (typeof v === "string") return v;
+  return v._id != null ? String(v._id) : "";
+}
+
+function getVariantSku(inv: Inventory): string {
+  const v = inv.variant;
+  if (v && typeof v === "object" && "sku" in v) return v.sku ?? "—";
+  return "—";
+}
 
 type TransferRow = {
   inventoryId: string;
   quantity: string;
+};
+
+type Warehouse = {
+  _id: string;
+  name: string;
+  address: {
+    formatted: string;
+  }
 };
 
 const InventoryTransfer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
@@ -30,6 +53,30 @@ const InventoryTransfer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transferRows, setTransferRows] = useState<TransferRow[]>([{ inventoryId: "", quantity: "" }]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(null);
+
+
+
+  const fetchWarehouses = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get(API_ENDPOINTS.GET_WAREHOUSES, {
+        withCredentials: true,
+      });
+      if (response.data.success) {
+        setWarehouses(response.data.warehouses ?? []);
+      } else {
+        setError(response.data.message ?? "Failed to fetch warehouses");
+      }
+    } catch (error: unknown) {
+      console.error(error);
+      setError(error instanceof Error ? error.message : "Failed to fetch warehouses");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const fetchInventory = async () => {
     setLoading(true);
@@ -59,6 +106,7 @@ const InventoryTransfer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
   useEffect(() => {
     fetchInventory();
+    fetchWarehouses();
   }, []);
 
   const selectedInventoryIds = transferRows
@@ -122,6 +170,56 @@ const InventoryTransfer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
     setTransferRows((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!vendor?._id) {
+      toast.error("Vendor not found");
+      return;
+    }
+    if (!selectedWarehouse?._id) {
+      toast.error("Select a warehouse");
+      return;
+    }
+
+    const variantsData = selectedInventoryWithQuantity
+      .map((item) => ({
+        variantId: getVariantIdFromInventory(item.inventory),
+        quantity: Math.floor(Number(item.quantity)),
+      }))
+      .filter((row) => row.variantId && row.quantity > 0);
+
+    if (variantsData.length === 0) {
+      toast.error("Add at least one line with inventory and quantity");
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        API_ENDPOINTS.CREATE_INVENTORY_TRANSFER,
+        {
+          variantsData,
+          fromType: "vendor",
+          fromId: vendor._id,
+          toType: "warehouse",
+          toId: selectedWarehouse._id,
+        },
+        { withCredentials: true }
+      );
+
+      if (response.data.success) {
+        toast.success(response.data.message ?? "Transfer created");
+        onClose();
+        fetchInventory();
+        setTransferRows([{ inventoryId: "", quantity: "" }]);
+        setSelectedWarehouse(null);
+      } else {
+        toast.error(response.data.message ?? "Transfer failed");
+      }
+    } catch {
+      toast.error("Failed to submit transfer");
+    }
+  };
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
@@ -175,7 +273,7 @@ const InventoryTransfer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                     <option value="">Select inventory</option>
                     {availableInventory.map((inv) => (
                       <option key={inv._id} value={inv._id}>
-                        {inv.variant?.sku ?? "—"} (stock: {inv.quantity})
+                        {getVariantSku(inv)} (stock: {inv.quantity})
                       </option>
                     ))}
                   </select>
@@ -215,6 +313,7 @@ const InventoryTransfer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
           })}
         </div>
 
+
         <div className="flex justify-start">
           <button
             type="button"
@@ -223,6 +322,22 @@ const InventoryTransfer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
           >
             Add Inventory
           </button>
+        </div>
+
+        <div className="flex justify-start gap-3">
+          <label className="text-[11px] uppercase tracking-wide font-semibold text-slate-400 mb-1.5 block">Warehouse</label>
+          <select
+            className="w-full h-10 rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/70 focus:border-blue-500"
+            value={selectedWarehouse?._id ?? ""}
+            onChange={(e) => setSelectedWarehouse(warehouses.find((warehouse) => warehouse._id === e.target.value) ?? null)}
+          >
+            <option value="">Select warehouse</option>
+            {warehouses.map((warehouse) => (
+              <option key={warehouse._id} value={warehouse._id}>
+                {warehouse.name} - {warehouse.address.formatted}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="border-t border-slate-700/70 pt-5">
@@ -237,7 +352,7 @@ const InventoryTransfer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                   className="flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2.5"
                 >
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium text-slate-100">{item.inventory.variant?.sku ?? "—"}</span>
+                    <span className="text-sm font-medium text-slate-100">{getVariantSku(item.inventory)}</span>
                     <span className="text-xs text-slate-400">Qty: {item.quantity || 0}</span>
                   </div>
                   <button
@@ -249,7 +364,20 @@ const InventoryTransfer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                   </button>
                 </div>
               ))}
+
+              <form onSubmit={handleSubmit}>
+                <button
+                  type="submit"
+                  className="w-full h-10 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 rounded-lg transition-colors"
+                >
+                  Submit
+                </button>
+              </form>
+
+
             </div>
+
+
           )}
         </div>
       </div>

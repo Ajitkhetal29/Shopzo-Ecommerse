@@ -94,5 +94,6 @@ export const API_ENDPOINTS = {
   UPDATE_VARIANT: `${API_BASE_URL}/product/variants/update`, // :id
   DELETE_VARIANT: `${API_BASE_URL}/product/variants/delete`, // :id
   GET_VARIANT_BY_ID: `${API_BASE_URL}/product/variants`, // GET /:id
+  GENERATE_UPLOAD_URL: `${API_BASE_URL}/upload/generate-upload-url`,
 
 };

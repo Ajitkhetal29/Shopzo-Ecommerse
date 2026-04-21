@@ -3,9 +3,88 @@ import Category from "../models/category.js";
 import Subcategory from "../models/subcategory.js";
 import Vendor from "../models/vendor.js";
 import Variant from "../models/variant.js";
-import { uploadImages, deleteImage } from "../utils/cloudinary.js";
+import { getViewUrl, deleteFileByKey } from "../config/upload.js";
 
 const vendorIdFromReq = (req) => req.vendor?.id;
+
+const parseImageUrls = (rawValue) => {
+  if (!rawValue) return [];
+  const parsed = typeof rawValue === "string" ? JSON.parse(rawValue) : rawValue;
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed
+    .filter((url) => typeof url === "string" && url.trim())
+    .map((url) => ({ url: url.trim() }));
+};
+
+const getKeyFromUrl = (url) => {
+  try {
+    const parsed = new URL(url);
+    return decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
+  } catch (_) {
+    return "";
+  }
+};
+
+const isS3Url = (url) => {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.includes("amazonaws.com");
+  } catch (_) {
+    return false;
+  }
+};
+
+const deleteImagesFromS3 = async (images = []) => {
+  for (const img of images) {
+    const url = img?.url;
+    if (!url || !isS3Url(url)) continue;
+
+    const key = getKeyFromUrl(url);
+    if (!key) continue;
+
+    try {
+      await deleteFileByKey(key);
+    } catch (error) {
+      console.error("S3 delete failed:", error);
+    }
+  }
+};
+
+const addViewUrlsToImages = async (images = []) => {
+  const result = [];
+
+  for (const img of images) {
+    if (!img?.url) {
+      result.push(img);
+      continue;
+    }
+
+    const key = getKeyFromUrl(img.url);
+    if (!key) {
+      result.push(img);
+      continue;
+    }
+
+    try {
+      const viewUrl = await getViewUrl(key);
+      result.push({ ...img, url: viewUrl });
+    } catch (_) {
+      result.push(img);
+    }
+  }
+
+  return result;
+};
+
+const addViewUrlsToEntity = async (entity) => {
+  if (!entity) return entity;
+  const plain = typeof entity.toObject === "function" ? entity.toObject() : entity;
+  return {
+    ...plain,
+    images: await addViewUrlsToImages(plain.images || []),
+  };
+};
 
 /** Treat missing / other vendor as 404 so we do not leak resource existence */
 async function findProductOwnedBy(productId, vendorId) {
@@ -63,8 +142,13 @@ const vendorCreateProduct = async (req, res) => {
     }
 
     let imageList = [];
-    if (req.files?.length) {
-      imageList = await uploadImages(req.files);
+    try {
+      imageList = parseImageUrls(req.body.imageUrls);
+    } catch (_) {
+      return res.status(400).json({
+        success: false,
+        message: "imageUrls must be a valid JSON array",
+      });
     }
 
     const product = new Product({
@@ -85,14 +169,9 @@ const vendorCreateProduct = async (req, res) => {
     });
   } catch (error) {
     console.error("Vendor create product error:", error);
-    const isCloudinaryConfig =
-      error?.message?.includes("api_key") ||
-      error?.message?.includes("Must supply");
     res.status(500).json({
       success: false,
-      message: isCloudinaryConfig
-        ? "Cloudinary is not configured. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET to .env"
-        : "Something went wrong while adding product.",
+      message: "Something went wrong while adding product.",
     });
   }
 };
@@ -131,10 +210,15 @@ const vendorListProducts = async (req, res) => {
       Product.countDocuments(filter),
     ]);
 
+    const productsWithViewUrls = [];
+    for (const product of products) {
+      productsWithViewUrls.push(await addViewUrlsToEntity(product));
+    }
+
     return res.status(200).json({
       success: true,
       message: "Products fetched successfully",
-      products,
+      products: productsWithViewUrls,
       totalCount,
       page: parseInt(page, 10),
       limit: limitNum,
@@ -169,10 +253,12 @@ const vendorGetProductById = async (req, res) => {
       .populate("subcategory", "name slug")
       .populate("vendor", "name");
 
+    const productWithViewUrls = await addViewUrlsToEntity(productFound);
+
     return res.status(200).json({
       success: true,
       message: "Product fetched successfully",
-      product: productFound,
+      product: productWithViewUrls,
     });
   } catch (error) {
     console.error("Vendor get product error:", error);
@@ -199,6 +285,14 @@ const vendorDeleteProduct = async (req, res) => {
       });
     }
 
+    const variants = await Variant.find({ product: id });
+
+    await deleteImagesFromS3(owned.images || []);
+    for (const variant of variants) {
+      await deleteImagesFromS3(variant.images || []);
+    }
+
+    await Variant.deleteMany({ product: id });
     await Product.findByIdAndDelete(id);
     return res.status(200).json({
       success: true,
@@ -286,7 +380,15 @@ const vendorUpdateProduct = async (req, res) => {
             )
             .map((i) => existingList[i])
         : existingList;
-    const newUploads = req.files?.length ? await uploadImages(req.files) : [];
+    let newUploads = [];
+    try {
+      newUploads = parseImageUrls(req.body.imageUrls);
+    } catch (_) {
+      return res.status(400).json({
+        success: false,
+        message: "imageUrls must be a valid JSON array",
+      });
+    }
     product.images = [...keptExisting, ...newUploads];
 
     await product.save();
@@ -303,14 +405,9 @@ const vendorUpdateProduct = async (req, res) => {
         message: "Slug already in use by another product",
       });
     }
-    const isCloudinaryConfig =
-      error?.message?.includes("api_key") ||
-      error?.message?.includes("Must supply");
     return res.status(500).json({
       success: false,
-      message: isCloudinaryConfig
-        ? "Cloudinary is not configured."
-        : "Internal server error",
+      message: "Internal server error",
     });
   }
 };
@@ -340,8 +437,13 @@ const vendorAddVariant = async (req, res) => {
     }
 
     let imageList = [];
-    if (req.files?.length) {
-      imageList = await uploadImages(req.files);
+    try {
+      imageList = parseImageUrls(req.body.imageUrls);
+    } catch (_) {
+      return res.status(400).json({
+        success: false,
+        message: "imageUrls must be a valid JSON array",
+      });
     }
 
     const newVariant = await Variant.create({
@@ -391,10 +493,15 @@ const vendorGetProductVariants = async (req, res) => {
     }
 
     const variants = await Variant.find({ product: productId }).lean();
+    const variantsWithViewUrls = [];
+    for (const variant of variants) {
+      variantsWithViewUrls.push(await addViewUrlsToEntity(variant));
+    }
+
     return res.status(200).json({
       success: true,
       message: "Variants fetched successfully",
-      variants,
+      variants: variantsWithViewUrls,
     });
   } catch (error) {
     console.error("Vendor get variants error:", error);
@@ -429,10 +536,12 @@ const vendorGetVariantById = async (req, res) => {
       });
     }
 
+    const variantWithViewUrls = await addViewUrlsToEntity(variant);
+
     return res.status(200).json({
       success: true,
       message: "Variant fetched successfully",
-      variant,
+      variant: variantWithViewUrls,
     });
   } catch (error) {
     console.error("Vendor get variant error:", error);
@@ -456,15 +565,23 @@ const vendorUpdateVariant = async (req, res) => {
     let parsedExistingImages = [];
     if (existingImages) {
       try {
-        parsedExistingImages = JSON.parse(existingImages);
+        const parsed = typeof existingImages === "string" ? JSON.parse(existingImages) : existingImages;
+        parsedExistingImages = Array.isArray(parsed)
+          ? parsed.filter((img) => img && typeof img.url === "string")
+          : [];
       } catch (_) {
         parsedExistingImages = [];
       }
     }
 
     let newImageList = [];
-    if (req.files?.length) {
-      newImageList = await uploadImages(req.files);
+    try {
+      newImageList = parseImageUrls(req.body.imageUrls);
+    } catch (_) {
+      return res.status(400).json({
+        success: false,
+        message: "imageUrls must be a valid JSON array",
+      });
     }
 
     const variant = await Variant.findById(id);
@@ -487,9 +604,7 @@ const vendorUpdateVariant = async (req, res) => {
       (img) => !parsedExistingImages.some((e) => e.url === img.url),
     );
 
-    for (const img of removedImages) {
-      await deleteImage(img.public_id);
-    }
+    await deleteImagesFromS3(removedImages);
 
     const finalImages = [...parsedExistingImages, ...newImageList];
 
@@ -538,6 +653,7 @@ const vendorDeleteVariant = async (req, res) => {
       });
     }
 
+    await deleteImagesFromS3(variant.images || []);
     await Variant.findByIdAndDelete(id);
     return res.status(200).json({
       success: true,

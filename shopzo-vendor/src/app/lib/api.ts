@@ -20,6 +20,7 @@ export const API_ENDPOINTS = {
     DELETE_PRODUCT: `${VENDOR_PRODUCT}/delete`,
     CREATE_VARIANT: `${VENDOR_PRODUCT}/variants/add`,
     GET_PRODUCT_VARIANTS: `${VENDOR_PRODUCT}/variants/product`,
+    GENERATE_UPLOAD_URL: `${API_BASE_URL}/upload/generate-upload-url`,
 
     UPDATE_VARIANT: `${VENDOR_PRODUCT}/variants/update`,
     DELETE_VARIANT: `${VENDOR_PRODUCT}/variants/delete`,
@@ -29,4 +30,14 @@ export const API_ENDPOINTS = {
     CREATE_INVENTORY: `${API_BASE_URL}/inventory/create`,
     UPDATE_INVENTORY: `${API_BASE_URL}/inventory/update`,
     DELETE_INVENTORY: `${API_BASE_URL}/inventory/delete`,
+
+
+    GET_WAREHOUSES: `${API_BASE_URL}/warehouse/list`,
+
+
+
+    // inventory transfer
+    CREATE_INVENTORY_TRANSFER: `${API_BASE_URL}/inventoryTransfer/create`,
+    GET_INVENTORY_TRANSFER_REQUESTS: `${API_BASE_URL}/inventoryTransfer/list`,
+    GET_INVENTORY_TRANSFER_REQUEST_BY_ID: `${API_BASE_URL}/inventoryTransfer/getById`,
 };

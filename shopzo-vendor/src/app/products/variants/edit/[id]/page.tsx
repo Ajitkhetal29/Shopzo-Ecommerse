@@ -9,6 +9,7 @@ import { API_ENDPOINTS } from "@/app/lib/api";
 import { RootState } from "@/store";
 import { ProductVariant } from "@/store/types/product";
 import { toast } from "react-toastify";
+import { uploadFilesToS3 } from "@/lib/s3Upload";
 
 const MAX_IMAGES = 5;
 
@@ -138,17 +139,23 @@ export default function EditVariantPage() {
     e.preventDefault();
     setError("");
     try {
-      const formData = new FormData();
-      formData.append("size", form.size);
-      formData.append("color", form.color);
-      formData.append("price", form.price);
-      formData.append("sku", form.sku);
-      formData.append("existingImages", JSON.stringify(existingImages));
-      images.forEach((file) => formData.append("images", file));
-
-      const res = await axios.put(`${API_ENDPOINTS.UPDATE_VARIANT}/${variantId}`, formData, {
-        withCredentials: true,
+      const imageUrls = await uploadFilesToS3(images, "variant", {
+        productId,
+        sku: form.sku,
       });
+
+      const res = await axios.put(
+        `${API_ENDPOINTS.UPDATE_VARIANT}/${variantId}`,
+        {
+          size: form.size,
+          color: form.color,
+          price: form.price,
+          sku: form.sku,
+          existingImages,
+          imageUrls,
+        },
+        { withCredentials: true },
+      );
       if (!res.data.success) throw new Error(res.data.message);
       toast.success("Variant updated");
       router.push(`/products/variants/${productId}`);

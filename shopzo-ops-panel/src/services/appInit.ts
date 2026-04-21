@@ -20,27 +20,30 @@ export interface AppInitResult {
 export const initializeApp = async (): Promise<AppInitResult> => {
   try {
     const dispatch = store.dispatch;
-    const state = store.getState();
+    let state = store.getState();
+    let isAuthenticated = Boolean(state.auth.isAuthenticated && state.auth.user);
+
+    // First, resolve auth. If not logged in, skip protected startup fetches.
+    if (!isAuthenticated) {
+      try {
+        const res = await axios.get(API_ENDPOINTS.CURRENT_USER, { withCredentials: true });
+        if (res.data.success && res.data.user) {
+          dispatch(setUser(res.data.user));
+          isAuthenticated = true;
+        }
+      } catch {
+        return { success: true };
+      }
+    }
+
+    if (!isAuthenticated) {
+      return { success: true };
+    }
+
+    state = store.getState();
 
     // Only fetch if data is not already in Redux
     const promises: Promise<any>[] = [];
-
-    // Fetch current user if not authenticated
-    if (!state.auth.isAuthenticated || !state.auth.user) {
-      promises.push(
-        axios
-          .get(API_ENDPOINTS.CURRENT_USER, { withCredentials: true })
-          .then((res) => {
-            if (res.data.success && res.data.user) {
-              dispatch(setUser(res.data.user));
-            }
-          })
-          .catch((err) => {
-            console.error("Error fetching current user:", err);
-            // Don't throw - user might not be logged in
-          })
-      );
-    }
 
     // Fetch warehouses if not in Redux
     if (!state.warehouse.warehouses || state.warehouse.warehouses.length === 0) {
@@ -99,6 +102,9 @@ export const initializeApp = async (): Promise<AppInitResult> => {
             if (res.data.success && res.data.departments) {
               dispatch(setDepartments(res.data.departments));
             }
+          })
+          .catch((err) => {
+            console.error("Error fetching departments:", err);
           })
       );
     }
