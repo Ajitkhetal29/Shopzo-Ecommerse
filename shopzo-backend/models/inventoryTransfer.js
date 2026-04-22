@@ -218,7 +218,7 @@ inventoryTransferSchema.pre("save", function () {
     return;
   }
 
-  if (this.isModified("status")) {
+  if (!this.isNew && this.isModified("status")) {
     this.statusHistory.push({
       status: this.status,
       changedAt: new Date(),

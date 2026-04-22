@@ -4,6 +4,8 @@ import { API_ENDPOINTS } from "@/lib/api";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import TransferRequest from "./components/transferrequest";
 
 type inventoryTransfer = {
     _id: string;
@@ -24,6 +26,7 @@ const TransferInventoryPage = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [selectedStatusTab, setSelectedStatusTab] = useState<StatusTab>("all");
+    const [selectedTransferId, setSelectedTransferId] = useState<string | null>(null);
 
     const fetchInventoryTransferRequests = async () => {
         if (!warehouse?._id) return;
@@ -161,12 +164,34 @@ const TransferInventoryPage = () => {
                                     <p className="mt-1 text-gray-700 dark:text-gray-300">{request.toName || "-"}</p>
                                 </div>
                             </div>
+
+                            <div className="mt-4 flex justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedTransferId(request._id)}
+                                    className="rounded-lg border border-gray-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+                                >
+                                    Change Status
+                                </button>
+                                <Link
+                                    href={`/transfer-requests/${request._id}`}
+                                    className="rounded-lg border border-gray-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+                                >
+                                    View Details
+                                </Link>
+                            </div>
                         </div>
                         );
                     })}
                 </div>
             )}
             </div>
+
+            <TransferRequest
+                isOpen={Boolean(selectedTransferId)}
+                transferId={selectedTransferId}
+                onClose={() => setSelectedTransferId(null)}
+            />
         </div>
     );
 };

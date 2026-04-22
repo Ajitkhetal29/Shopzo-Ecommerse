@@ -111,15 +111,6 @@ const createInventoryTransferRequest = async (req, res) => {
             toId,
             status: "initiated",
             initiatedAt: new Date(),
-            statusHistory: [
-                {
-                    status: "initiated",
-                    changedAt: new Date(),
-                    changedByType: fromType,
-                    changedByModel: fromType === "vendor" ? "Vendor" : "Warehouse",
-                    changedById: fromId,
-                },
-            ],
         });
 
         return res.status(201).json({
@@ -284,6 +275,52 @@ const getInventoryTransferRequestById = async (req, res) => {
                 },
             ];
         }
+
+        const vendorIds = new Set();
+        const warehouseIds = new Set();
+
+        transfer.statusHistory.forEach((history) => {
+            const changedById =
+                history?.changedById && typeof history.changedById === "object"
+                    ? history.changedById?._id
+                    : history?.changedById;
+
+            if (!changedById) return;
+            if (history.changedByType === "vendor") vendorIds.add(String(changedById));
+            if (history.changedByType === "warehouse") warehouseIds.add(String(changedById));
+        });
+
+        const [vendors, warehouses] = await Promise.all([
+            vendorIds.size
+                ? Vendor.find({ _id: { $in: Array.from(vendorIds) } }).select("_id name").lean()
+                : Promise.resolve([]),
+            warehouseIds.size
+                ? Warehouse.find({ _id: { $in: Array.from(warehouseIds) } }).select("_id name").lean()
+                : Promise.resolve([]),
+        ]);
+
+        const vendorNameMap = new Map(vendors.map((doc) => [String(doc._id), doc.name]));
+        const warehouseNameMap = new Map(warehouses.map((doc) => [String(doc._id), doc.name]));
+
+        transfer.statusHistory = transfer.statusHistory.map((history) => {
+            const changedById =
+                history?.changedById && typeof history.changedById === "object"
+                    ? history.changedById?._id
+                    : history?.changedById;
+            const changedByIdStr = changedById ? String(changedById) : null;
+
+            let changedByName = "-";
+            if (changedByIdStr && history.changedByType === "vendor") {
+                changedByName = vendorNameMap.get(changedByIdStr) || "-";
+            } else if (changedByIdStr && history.changedByType === "warehouse") {
+                changedByName = warehouseNameMap.get(changedByIdStr) || "-";
+            }
+
+            return {
+                ...history,
+                changedByName,
+            };
+        });
 
         return res.status(200).json({
             success: true,

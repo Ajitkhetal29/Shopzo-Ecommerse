@@ -9,6 +9,7 @@ export const API_ENDPOINTS = {
 
 // inventory transfer
   GET_INVENTORY_TRANSFER_REQUESTS: `${API_BASE_URL}/inventoryTransfer/list`,
+  GET_INVENTORY_TRANSFER_REQUEST_BY_ID: `${API_BASE_URL}/inventoryTransfer/getById`,
 
 
 // inventory
