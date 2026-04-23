@@ -21,31 +21,6 @@ const itemSchema = new mongoose.Schema(
     damagedQuantity: { type: Number, min: 0, default: null },
     missingQuantity: { type: Number, min: 0, default: null },
     extraQuantity: { type: Number, min: 0, default: null },
-
-    // Optional issue per item
-    issue: {
-      reason: {
-        type: String,
-        enum: ["damaged", "missing", "extra"],
-      },
-      note: String,
-      images: {
-        type: [String],
-        default: [],
-      },
-      issueQuantity: {
-        type: Number,
-        min: 0,
-      },
-      resolutionType: {
-        type: String,
-        enum: ["return", "replace", "adjust"],
-      },
-      status: {
-        type: String,
-        enum: ["pending", "in_progress", "resolved"],
-      },
-    },
   },
   { _id: false }
 );
@@ -148,6 +123,17 @@ const inventoryTransferSchema = new mongoose.Schema(
       default: [],
     },
 
+    hasIssues: {
+      type: Boolean,
+      default: false,
+    },
+
+    issuesCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     initiatedAt: { type: Date, default: Date.now },
     approvedAt: Date,
     rejectedAt: Date,
@@ -191,15 +177,18 @@ inventoryTransferSchema.pre("validate", function () {
     const allFilled = fields.every((v) => v !== null && v !== undefined);
 
     if (allFilled) {
-      const sum =
-        item.acceptedQuantity +
-        item.damagedQuantity +
-        item.missingQuantity +
-        item.extraQuantity;
+      const receivedFromPhysical = item.acceptedQuantity + item.damagedQuantity;
+      const receivedFromSent = item.quantity - item.missingQuantity + item.extraQuantity;
 
-      if (item.receivedQuantity !== sum) {
+      if (item.receivedQuantity !== receivedFromPhysical) {
         throw new Error(
-          "Item quantity mismatch: received must equal accepted + damaged + missing + extra"
+          "Item quantity mismatch: received must equal accepted + damaged"
+        );
+      }
+
+      if (item.receivedQuantity !== receivedFromSent) {
+        throw new Error(
+          "Item quantity mismatch: received must equal sent - missing + extra"
         );
       }
     }
@@ -207,6 +196,10 @@ inventoryTransferSchema.pre("validate", function () {
 });
 
 inventoryTransferSchema.pre("save", function () {
+  if (this.$locals?.skipAutoStatusHistory) {
+    return;
+  }
+
   if (this.isNew && this.statusHistory.length === 0) {
     this.statusHistory.push({
       status: this.status,

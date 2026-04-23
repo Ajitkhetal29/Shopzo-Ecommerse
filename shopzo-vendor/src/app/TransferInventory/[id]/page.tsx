@@ -152,9 +152,19 @@ const TransferRequestDetailPage = () => {
                         </Link>
                         <h1 className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">Transfer Request Details</h1>
                     </div>
-                    <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold capitalize text-gray-800 dark:bg-slate-700 dark:text-slate-100">
-                        {transferRequest.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        {transferRequest.status === "issue_reported" && (
+                            <Link
+                                href={`/TransferInventory/${transferRequest._id}/issues`}
+                                className="rounded-md border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                            >
+                                View Issues
+                            </Link>
+                        )}
+                        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold capitalize text-gray-800 dark:bg-slate-700 dark:text-slate-100">
+                            {transferRequest.status}
+                        </span>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
