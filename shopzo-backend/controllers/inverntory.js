@@ -3,6 +3,7 @@ import Warehouse from "../models/warehouse.js";
 import Vendor from "../models/vendor.js";
 import Variant from "../models/variant.js";
 import { getViewUrl } from "../config/upload.js";
+import { recomputeAvailable } from "../utils/inventoryStock.js";
 
 const getKeyFromUrl = (url) => {
     try {
@@ -109,8 +110,13 @@ const createInventory = async (req, res) => {
             vendor: vendorId,
             quantity,
             locationType,
-            available: quantity,
+            reserved: 0,
+            missingHold: 0,
+            damagedQty: 0,
+            extraHold: 0,
         });
+        recomputeAvailable(inventory);
+        await inventory.save();
 
         return res.status(201).json({
             success: true,
@@ -208,13 +214,9 @@ const updateInventory = async (req, res) => {
                 message: "Inventory not found",
             });
         }
-        const reserved = existing.reserved ?? 0;
-        const available = Math.max(0, Number(quantity) - reserved);
-        const inventory = await Inventory.findByIdAndUpdate(
-            inventoryId,
-            { quantity, available },
-            { new: true, runValidators: true }
-        );
+        existing.quantity = Number(quantity);
+        recomputeAvailable(existing);
+        const inventory = await existing.save({ validateBeforeSave: true });
 
         return res.status(200).json({
             success: true,

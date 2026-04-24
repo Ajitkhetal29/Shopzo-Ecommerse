@@ -19,6 +19,8 @@ type inventoryTransfer = {
 
 type StatusTab = "all" | "active" | "completed" | "reject";
 
+const PAGE_SIZE = 10;
+
 const TransferInventoryPage = () => {
 
     const warehouse = useSelector((state: RootState) => state.auth.warehouse);
@@ -27,38 +29,50 @@ const TransferInventoryPage = () => {
     const [error, setError] = useState<string | null>(null);
     const [selectedStatusTab, setSelectedStatusTab] = useState<StatusTab>("all");
     const [selectedTransferId, setSelectedTransferId] = useState<string | null>(null);
+    const [initialStatusForModal, setInitialStatusForModal] = useState<string | undefined>(undefined);
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
 
-    const fetchInventoryTransferRequests = async () => {
-        if (!warehouse?._id) return;
-        setLoading(true);
-        setError(null);
-        try {
-            const response = await axios.get(API_ENDPOINTS.GET_INVENTORY_TRANSFER_REQUESTS, {
-                withCredentials: true,
-                params: {
-                    toType: "warehouse",
-                    toId: warehouse?._id,
-                    status: selectedStatusTab,
-                }
-            });
-            if (response.data.success) {
-                setInventoryTransferRequests(response.data.transferRequests);
-            }
-        } catch (err: unknown) {
-            if (axios.isAxiosError(err)) {
-                setError(err.response?.data?.message || err.message || "Failed to fetch inventory transfer requests");
-            } else {
-                setError("Failed to fetch inventory transfer requests");
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
+    useEffect(() => {
+        setPage(1);
+    }, [warehouse?._id]);
 
     useEffect(() => {
         if (!warehouse?._id) return;
+
+        const fetchInventoryTransferRequests = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const response = await axios.get(API_ENDPOINTS.GET_INVENTORY_TRANSFER_REQUESTS, {
+                    withCredentials: true,
+                    params: {
+                        toType: "warehouse",
+                        toId: warehouse?._id,
+                        status: selectedStatusTab,
+                        page,
+                        limit: PAGE_SIZE,
+                    }
+                });
+                if (response.data.success) {
+                    setInventoryTransferRequests(response.data.transferRequests ?? []);
+                    setTotalPages(Math.max(1, Number(response.data.totalPages) || 1));
+                    setTotalCount(Number(response.data.totalCount) || 0);
+                }
+            } catch (err: unknown) {
+                if (axios.isAxiosError(err)) {
+                    setError(err.response?.data?.message || err.message || "Failed to fetch inventory transfer requests");
+                } else {
+                    setError("Failed to fetch inventory transfer requests");
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
+
         fetchInventoryTransferRequests();
-    }, [warehouse?._id, selectedStatusTab]);
+    }, [warehouse?._id, selectedStatusTab, page]);
 
     const formatDate = (date?: string) => {
         if (!date) return "-";
@@ -117,7 +131,10 @@ const TransferInventoryPage = () => {
                     <button
                         key={tab}
                         type="button"
-                        onClick={() => setSelectedStatusTab(tab)}
+                        onClick={() => {
+                            setSelectedStatusTab(tab);
+                            setPage(1);
+                        }}
                         className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${
                             selectedStatusTab === tab
                                 ? "bg-black dark:bg-white text-white dark:text-black"
@@ -166,13 +183,33 @@ const TransferInventoryPage = () => {
                             </div>
 
                             <div className="mt-4 flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedTransferId(request._id)}
-                                    className="rounded-lg border border-gray-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
-                                >
-                                    Change Status
-                                </button>
+                                {request.status === "delivered" ? (
+                                    <>
+                                        <Link
+                                            href={`/transfer-requests/${request._id}/settlement?mode=completed`}
+                                            className="rounded-lg border border-gray-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+                                        >
+                                            Complete
+                                        </Link>
+                                        <Link
+                                            href={`/transfer-requests/${request._id}/settlement?mode=issue_reported`}
+                                            className="rounded-lg border border-gray-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+                                        >
+                                            Issue Reported
+                                        </Link>
+                                    </>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedTransferId(request._id);
+                                            setInitialStatusForModal(undefined);
+                                        }}
+                                        className="rounded-lg border border-gray-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+                                    >
+                                        Change Status
+                                    </button>
+                                )}
                                 <Link
                                     href={`/transfer-requests/${request._id}`}
                                     className="rounded-lg border border-gray-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
@@ -185,12 +222,79 @@ const TransferInventoryPage = () => {
                     })}
                 </div>
             )}
+
+            {totalCount > 0 && (
+                <div className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-t border-gray-200 dark:border-slate-700 pt-6">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Showing page <span className="font-medium text-gray-900 dark:text-slate-100">{page}</span> of{" "}
+                        <span className="font-medium text-gray-900 dark:text-slate-100">{totalPages}</span>
+                        <span className="text-gray-500 dark:text-gray-500"> · {totalCount} total</span>
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            disabled={page <= 1}
+                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                            className="rounded-lg border border-gray-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                        >
+                            Previous
+                        </button>
+                        <button
+                            type="button"
+                            disabled={page >= totalPages}
+                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                            className="rounded-lg border border-gray-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+            )}
             </div>
 
             <TransferRequest
                 isOpen={Boolean(selectedTransferId)}
                 transferId={selectedTransferId}
-                onClose={() => setSelectedTransferId(null)}
+                initialStatus={initialStatusForModal}
+                onClose={() => {
+                    setSelectedTransferId(null);
+                    setInitialStatusForModal(undefined);
+                }}
+                onSuccess={() => {
+                    if (!warehouse?._id) return;
+                    setLoading(true);
+                    setError(null);
+                    axios
+                        .get(API_ENDPOINTS.GET_INVENTORY_TRANSFER_REQUESTS, {
+                            withCredentials: true,
+                            params: {
+                                toType: "warehouse",
+                                toId: warehouse?._id,
+                                status: selectedStatusTab,
+                                page,
+                                limit: PAGE_SIZE,
+                            },
+                        })
+                        .then((response) => {
+                            if (response.data.success) {
+                                setInventoryTransferRequests(response.data.transferRequests ?? []);
+                                setTotalPages(Math.max(1, Number(response.data.totalPages) || 1));
+                                setTotalCount(Number(response.data.totalCount) || 0);
+                            }
+                        })
+                        .catch((err: unknown) => {
+                            if (axios.isAxiosError(err)) {
+                                setError(
+                                    err.response?.data?.message ||
+                                        err.message ||
+                                        "Failed to fetch inventory transfer requests"
+                                );
+                            } else {
+                                setError("Failed to fetch inventory transfer requests");
+                            }
+                        })
+                        .finally(() => setLoading(false));
+                }}
             />
         </div>
     );

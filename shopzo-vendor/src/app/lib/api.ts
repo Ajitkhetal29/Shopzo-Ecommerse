@@ -40,4 +40,7 @@ export const API_ENDPOINTS = {
     CREATE_INVENTORY_TRANSFER: `${API_BASE_URL}/inventoryTransfer/create`,
     GET_INVENTORY_TRANSFER_REQUESTS: `${API_BASE_URL}/inventoryTransfer/list`,
     GET_INVENTORY_TRANSFER_REQUEST_BY_ID: `${API_BASE_URL}/inventoryTransfer/getById`,
+    GET_INVENTORY_TRANSFER_STATUS_RULES: `${API_BASE_URL}/inventoryTransfer/status-rules`,
+    UPDATE_INVENTORY_TRANSFER_STATUS: `${API_BASE_URL}/inventoryTransfer/status`,
+    GET_TRANSFER_ISSUES: `${API_BASE_URL}/inventoryTransfer/issues`,
 };

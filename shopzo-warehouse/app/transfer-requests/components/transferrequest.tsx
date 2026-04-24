@@ -3,6 +3,9 @@
 import { API_ENDPOINTS } from "@/lib/api";
 import axios from "axios";
 import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
+import { toast } from "react-toastify";
 
 type TransferVariant = {
     _id: string;
@@ -30,16 +33,27 @@ type TransferRequestDetail = {
     items: TransferItem[];
 };
 
+type StatusRulesResponse = {
+    success: boolean;
+    allowedStatuses?: string[];
+};
+
 type TransferRequestProps = {
     isOpen: boolean;
     onClose: () => void;
     transferId: string | null;
+    initialStatus?: string;
+    onSuccess?: () => void;
 };
 
-const TransferRequest = ({ isOpen, onClose, transferId }: TransferRequestProps) => {
+const TransferRequest = ({ isOpen, onClose, transferId, initialStatus, onSuccess }: TransferRequestProps) => {
+    const warehouse = useSelector((state: RootState) => state.auth.warehouse);
     const [transferRequest, setTransferRequest] = useState<TransferRequestDetail | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [allowedStatuses, setAllowedStatuses] = useState<string[]>([]);
+    const [selectedStatus, setSelectedStatus] = useState("");
+    const [updatingStatus, setUpdatingStatus] = useState(false);
 
     const fetchTransferRequest = async () => {
         if (!transferId) return;
@@ -52,6 +66,25 @@ const TransferRequest = ({ isOpen, onClose, transferId }: TransferRequestProps) 
             });
             if (response.data.success) {
                 setTransferRequest(response.data.transfer);
+
+                const statusRulesResponse = await axios.get<StatusRulesResponse>(
+                    API_ENDPOINTS.GET_INVENTORY_TRANSFER_STATUS_RULES,
+                    {
+                        withCredentials: true,
+                        params: {
+                            currentStatus: response.data.transfer?.status,
+                            actorType: "warehouse",
+                        },
+                    }
+                );
+                const allowed = statusRulesResponse.data.allowedStatuses ?? [];
+                setAllowedStatuses(allowed);
+                if (initialStatus && allowed.includes(initialStatus)) {
+                    setSelectedStatus(initialStatus);
+                } else {
+                    setSelectedStatus("");
+                }
+
             }
         } catch (err: unknown) {
             if (axios.isAxiosError(err)) {
@@ -68,10 +101,12 @@ const TransferRequest = ({ isOpen, onClose, transferId }: TransferRequestProps) 
         if (!isOpen) {
             setTransferRequest(null);
             setError(null);
+            setAllowedStatuses([]);
+            setSelectedStatus("");
             return;
         }
         fetchTransferRequest();
-    }, [isOpen, transferId]);
+    }, [isOpen, transferId, initialStatus]);
 
     if (!isOpen) return null;
 
@@ -83,6 +118,40 @@ const TransferRequest = ({ isOpen, onClose, transferId }: TransferRequestProps) 
     };
 
     const totalQuantity = transferRequest?.items?.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0) ?? 0;
+
+    const handleChangeStatus = async () => {
+        if (!transferRequest?._id || !selectedStatus || !warehouse?._id) return;
+
+        setUpdatingStatus(true);
+        try {
+            const response = await axios.patch(
+                API_ENDPOINTS.UPDATE_INVENTORY_TRANSFER_STATUS,
+                {
+                    transferId: transferRequest._id,
+                    newStatus: selectedStatus,
+                    userType: "warehouse",
+                    userId: warehouse._id,
+                },
+                { withCredentials: true }
+            );
+
+            if (response.data.success) {
+                toast.success(response.data.message || "Status updated successfully");
+                onSuccess?.();
+                onClose();
+            } else {
+                toast.error(response.data.message || "Failed to update status");
+            }
+        } catch (err: unknown) {
+            if (axios.isAxiosError(err)) {
+                toast.error(err.response?.data?.message || err.message || "Failed to update status");
+            } else {
+                toast.error("Failed to update status");
+            }
+        } finally {
+            setUpdatingStatus(false);
+        }
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -165,6 +234,33 @@ const TransferRequest = ({ isOpen, onClose, transferId }: TransferRequestProps) 
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2 border-t border-gray-200 pt-4 dark:border-slate-700">
+                            <select
+                                className="w-full max-w-xs rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                                value={selectedStatus}
+                                onChange={(e) => setSelectedStatus(e.target.value)}
+                                disabled={allowedStatuses.length === 0}
+                            >
+                                <option value="">
+                                    {allowedStatuses.length > 0 ? "Select status" : "No status action available"}
+                                </option>
+                                {allowedStatuses.map((status) => (
+                                    <option key={status} value={status}>
+                                        {status}
+                                    </option>
+                                ))}
+                            </select>
+
+                            <button
+                                type="button"
+                                onClick={handleChangeStatus}
+                                disabled={!selectedStatus || updatingStatus}
+                                className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+                            >
+                                {updatingStatus ? "Updating..." : "Change Status"}
+                            </button>
                         </div>
                     </div>
                 )}

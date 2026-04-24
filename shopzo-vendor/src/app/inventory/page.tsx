@@ -7,6 +7,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import Link from "next/link";
 import InventoryTransfer from "./transfer/inventoryTransfer";
+import { sellableAvailable } from "@/lib/inventoryDisplay";
 
 type variant = {
   name?: string;
@@ -19,6 +20,9 @@ type Inventory = {
   quantity: number;
   reserved?: number;
   available?: number;
+  missingHold?: number;
+  damagedQty?: number;
+  extraHold?: number;
   variant?: variant;
 };
 
@@ -108,7 +112,7 @@ export default function InventoryPage() {
           <div>
             <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">Inventory</h1>
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-              Stock by variant · {totalCount} total
+              Stock by variant · {totalCount} total · Available = sellable (not reserved / holds)
             </p>
           </div>
           <Link
@@ -162,6 +166,15 @@ export default function InventoryPage() {
                       Reserved
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      Missing
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      Damaged
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                      Extra hold
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                       Total
                     </th>
                   </tr>
@@ -170,7 +183,10 @@ export default function InventoryPage() {
                   {inventory.map((inv) => {
                     const qty = inv.quantity;
                     const resv = inv.reserved ?? 0;
-                    const avail = inv.available ?? Math.max(0, qty - resv);
+                    const mh = inv.missingHold ?? 0;
+                    const dq = inv.damagedQty ?? 0;
+                    const eh = inv.extraHold ?? 0;
+                    const avail = sellableAvailable(inv);
 
                     return (
                       <tr key={inv._id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30">
@@ -199,6 +215,15 @@ export default function InventoryPage() {
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">
                           {resv}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums text-amber-700 dark:text-amber-400">
+                          {mh}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums text-orange-700 dark:text-orange-400">
+                          {dq}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums text-violet-700 dark:text-violet-400">
+                          {eh}
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums text-gray-900 dark:text-white">
                           {qty}
