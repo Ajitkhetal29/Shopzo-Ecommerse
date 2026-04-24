@@ -10,13 +10,6 @@ export const API_ENDPOINTS = {
 // inventory transfer
   GET_INVENTORY_TRANSFER_REQUESTS: `${API_BASE_URL}/inventoryTransfer/list`,
   GET_INVENTORY_TRANSFER_REQUEST_BY_ID: `${API_BASE_URL}/inventoryTransfer/getById`,
-  UPDATE_INVENTORY_TRANSFER_STATUS: `${API_BASE_URL}/inventoryTransfer/status`,
-
-  // transfer issues
-  GET_TRANSFER_ISSUES: `${API_BASE_URL}/transferIssue/list`,
-  GET_TRANSFER_ISSUE_BY_ID: `${API_BASE_URL}/transferIssue/getById`,
-  UPDATE_TRANSFER_ISSUE_STATUS: `${API_BASE_URL}/transferIssue/status`,
-  RESOLVE_TRANSFER_ISSUE: `${API_BASE_URL}/transferIssue/resolve`,
 
 
 // inventory

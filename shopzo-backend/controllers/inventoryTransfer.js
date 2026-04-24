@@ -1,84 +1,9 @@
 import mongoose from "mongoose";
 import Inventory from "../models/inventory.js";
 import inventoryTransfer from "../models/inventoryTransfer.js";
-import TransferIssue from "../models/transferIssue.js";
+import Variant from "../models/variant.js";
 import Vendor from "../models/vendor.js";
 import Warehouse from "../models/warehouse.js";
-import {
-    TRANSFER_ALLOWED_STATUSES,
-    TRANSFER_STATUS_TRANSITIONS,
-    canActorUpdateTransferStatus,
-    getAllowedStatusesForTransfer,
-} from "../constants/transferStatus.js";
-
-const TIMESTAMP_FIELD_MAP = {
-    approved: "approvedAt",
-    rejected: "rejectedAt",
-    cancelled: "cancelledAt",
-    shipped: "shippedAt",
-    delivered: "deliveredAt",
-    completed: "completedAt",
-};
-
-const ISSUE_TYPE_TO_FIELD = {
-    damaged: "damagedQuantity",
-    missing: "missingQuantity",
-    extra: "extraQuantity",
-};
-
-const toObjectId = (value) => new mongoose.Types.ObjectId(value);
-
-const buildLocationFilter = (type, id) => {
-    if (type === "warehouse") return { warehouse: id };
-    return { vendor: id };
-};
-
-const normalizeDeliveryItems = (items) => {
-    if (!Array.isArray(items) || items.length === 0) {
-        throw new Error("items are required");
-    }
-
-    const map = new Map();
-
-    for (const item of items) {
-        const variant = item?.variant || item?.variantId;
-        if (!variant || !mongoose.Types.ObjectId.isValid(variant)) {
-            throw new Error("Each item must include a valid variant/variantId");
-        }
-
-        const receivedQuantity = Number(item?.receivedQuantity);
-        const acceptedQuantity = Number(item?.acceptedQuantity);
-        const damagedQuantity = Number(item?.damagedQuantity);
-        const missingQuantity = Number(item?.missingQuantity);
-        const extraQuantity = Number(item?.extraQuantity);
-
-        const values = [
-            receivedQuantity,
-            acceptedQuantity,
-            damagedQuantity,
-            missingQuantity,
-            extraQuantity,
-        ];
-
-        if (values.some((qty) => !Number.isInteger(qty) || qty < 0)) {
-            throw new Error("Item quantities must be non-negative integers");
-        }
-
-        if (receivedQuantity !== acceptedQuantity + damagedQuantity) {
-            throw new Error("Quantity mismatch for item");
-        }
-
-        map.set(String(variant), {
-            receivedQuantity,
-            acceptedQuantity,
-            damagedQuantity,
-            missingQuantity,
-            extraQuantity,
-        });
-    }
-
-    return map;
-};
 
 const createInventoryTransferRequest = async (req, res) => {
     try {
@@ -237,6 +162,17 @@ const getInventoryTransferRequests = async (req, res) => {
             });
         }
 
+        const allowedStatuses = [
+            "initiated",
+            "approved",
+            "rejected",
+            "cancelled",
+            "shipped",
+            "delivered",
+            "issue_reported",
+            "completed",
+        ];
+
         const statusGroups = {
             active: ["initiated", "approved", "shipped", "delivered", "issue_reported"],
             completed: ["completed"],
@@ -246,7 +182,7 @@ const getInventoryTransferRequests = async (req, res) => {
         if (
             status &&
             status !== "all" &&
-            !TRANSFER_ALLOWED_STATUSES.includes(status) &&
+            !allowedStatuses.includes(status) &&
             !Object.keys(statusGroups).includes(status)
         ) {
             return res.status(400).json({
@@ -271,14 +207,12 @@ const getInventoryTransferRequests = async (req, res) => {
 
         const transfers = await inventoryTransfer
             .find(filter)
-            .select("fromType fromModel fromId toType toModel toId status initiatedAt hasIssues issuesCount")
+            .select("fromType fromModel fromId toType toModel toId status initiatedAt")
             .populate("fromId", "name")
             .populate("toId", "name")
             .sort({ createdAt: -1 })
             .lean();
 
-        const actorType = req.query.actorType;
-        const actorId = req.query.actorId;
         const transferRequests = transfers.map((t) => ({
             _id: t._id,
             fromType: t.fromType,
@@ -287,9 +221,6 @@ const getInventoryTransferRequests = async (req, res) => {
             toName: t.toId?.name || null,
             status: t.status,
             initiatedAt: t.initiatedAt,
-            hasIssues: Boolean(t.hasIssues),
-            issuesCount: Number(t.issuesCount || 0),
-            allowedStatuses: getAllowedStatusesForTransfer(t, actorType, actorId),
         }));
 
         return res.status(200).json({
@@ -391,10 +322,6 @@ const getInventoryTransferRequestById = async (req, res) => {
             };
         });
 
-        const actorType = req.query.actorType;
-        const actorId = req.query.actorId;
-        transfer.allowedStatuses = getAllowedStatusesForTransfer(transfer, actorType, actorId);
-
         return res.status(200).json({
             success: true,
             message: "Inventory transfer request fetched successfully",
@@ -409,370 +336,8 @@ const getInventoryTransferRequestById = async (req, res) => {
     }
 };
 
-const getAllowedInventoryTransferStatuses = async (req, res) => {
-    try {
-        const { transferId, actorType, actorId } = req.query;
-
-        if (!transferId || !mongoose.Types.ObjectId.isValid(transferId)) {
-            return res.status(400).json({
-                success: false,
-                message: "valid transferId is required",
-            });
-        }
-
-        if (!actorType || !["vendor", "warehouse"].includes(actorType)) {
-            return res.status(400).json({
-                success: false,
-                message: "actorType must be vendor or warehouse",
-            });
-        }
-
-        if (!actorId || !mongoose.Types.ObjectId.isValid(actorId)) {
-            return res.status(400).json({
-                success: false,
-                message: "valid actorId is required",
-            });
-        }
-
-        const transfer = await inventoryTransfer
-            .findById(transferId)
-            .select("status fromType fromId toType toId")
-            .lean();
-
-        if (!transfer) {
-            return res.status(404).json({
-                success: false,
-                message: "Inventory transfer request not found",
-            });
-        }
-
-        const allowedStatuses = getAllowedStatusesForTransfer(transfer, actorType, actorId);
-
-        return res.status(200).json({
-            success: true,
-            currentStatus: transfer.status,
-            allowedStatuses,
-        });
-    } catch (error) {
-        console.error("Get allowed inventory transfer statuses error:", error);
-        return res.status(500).json({
-            success: false,
-            message: error.message || "Internal server error",
-        });
-    }
-};
-
-const changeInventoryTransferStatus = async (req, res) => {
-    const session = await mongoose.startSession();
-    try {
-        const {
-            transferId,
-            status,
-            changedByType,
-            changedById,
-            items = [],
-        } = req.body ?? {};
-
-        if (!transferId || !mongoose.Types.ObjectId.isValid(transferId)) {
-            return res.status(400).json({
-                success: false,
-                message: "valid transferId is required",
-            });
-        }
-
-        if (!status || !Object.keys(TRANSFER_STATUS_TRANSITIONS).includes(status)) {
-            return res.status(400).json({
-                success: false,
-                message: "valid status is required",
-            });
-        }
-
-        if (!changedByType || !["vendor", "warehouse"].includes(changedByType)) {
-            return res.status(400).json({
-                success: false,
-                message: "changedByType must be vendor or warehouse",
-            });
-        }
-
-        if (!changedById || !mongoose.Types.ObjectId.isValid(changedById)) {
-            return res.status(400).json({
-                success: false,
-                message: "valid changedById is required",
-            });
-        }
-
-        let updatedTransfer = null;
-
-        await session.withTransaction(async () => {
-            const transfer = await inventoryTransfer.findById(transferId).session(session);
-            if (!transfer) {
-                throw new Error("Inventory transfer request not found");
-            }
-
-            const allowedNextStatuses = TRANSFER_STATUS_TRANSITIONS[transfer.status] || [];
-            if (!allowedNextStatuses.includes(status)) {
-                throw new Error(`Invalid status transition: ${transfer.status} -> ${status}`);
-            }
-
-            if (!canActorUpdateTransferStatus(transfer, status, changedByType, changedById)) {
-                throw new Error(`Actor is not allowed to change status to ${status}`);
-            }
-
-            const actorId = toObjectId(changedById);
-            const actorModel = changedByType === "vendor" ? "Vendor" : "Warehouse";
-
-            if (status === "shipped") {
-                if (
-                    transfer.fromType !== changedByType ||
-                    String(transfer.fromId) !== String(changedById)
-                ) {
-                    throw new Error("Only source location can mark transfer as shipped");
-                }
-
-                for (const transferItem of transfer.items) {
-                    const senderFilter = {
-                        variant: transferItem.variant,
-                        ...buildLocationFilter(transfer.fromType, transfer.fromId),
-                        available: { $gte: transferItem.quantity },
-                    };
-
-                    const senderUpdate = {
-                        $inc: {
-                            reserved: transferItem.quantity,
-                            available: -transferItem.quantity,
-                        },
-                    };
-
-                    const senderInventory = await Inventory.findOneAndUpdate(senderFilter, senderUpdate, {
-                        new: true,
-                        session,
-                    });
-
-                    if (!senderInventory) {
-                        throw new Error(
-                            `Insufficient available quantity for variant ${String(transferItem.variant)}`
-                        );
-                    }
-                }
-
-                transfer.status = "shipped";
-                transfer.shippedAt = new Date();
-                transfer.statusHistory.push({
-                    status: "shipped",
-                    changedAt: new Date(),
-                    changedByType,
-                    changedByModel: actorModel,
-                    changedById: actorId,
-                });
-            } else if (status === "delivered") {
-                if (
-                    transfer.toType !== changedByType ||
-                    String(transfer.toId) !== String(changedById)
-                ) {
-                    throw new Error("Only destination location can mark transfer as delivered");
-                }
-
-                transfer.deliveredAt = new Date();
-                transfer.status = "delivered";
-                transfer.statusHistory.push({
-                    status: "delivered",
-                    changedAt: new Date(),
-                    changedByType,
-                    changedByModel: actorModel,
-                    changedById: actorId,
-                });
-            } else if (status === "issue_reported" || status === "completed") {
-                if (
-                    transfer.toType !== changedByType ||
-                    String(transfer.toId) !== String(changedById)
-                ) {
-                    throw new Error("Only destination location can finalize delivered transfer");
-                }
-
-                const deliveredItemsMap = normalizeDeliveryItems(items);
-                if (deliveredItemsMap.size !== transfer.items.length) {
-                    throw new Error("Items count does not match transfer items");
-                }
-
-                const issueDocs = [];
-
-                for (let index = 0; index < transfer.items.length; index += 1) {
-                    const transferItem = transfer.items[index];
-                    const deliveredItem = deliveredItemsMap.get(String(transferItem.variant));
-                    if (!deliveredItem) {
-                        throw new Error(
-                            `Delivered quantities missing for variant ${String(transferItem.variant)}`
-                        );
-                    }
-
-                    const expectedReceived = transferItem.quantity - deliveredItem.missingQuantity + deliveredItem.extraQuantity;
-                    if (deliveredItem.receivedQuantity !== expectedReceived) {
-                        throw new Error(
-                            `Item mismatch for variant ${String(transferItem.variant)}: received must equal sent - missing + extra`
-                        );
-                    }
-
-                    if (status === "completed") {
-                        const isStrictMatch =
-                            deliveredItem.receivedQuantity === transferItem.quantity &&
-                            deliveredItem.acceptedQuantity === transferItem.quantity &&
-                            deliveredItem.damagedQuantity === 0 &&
-                            deliveredItem.missingQuantity === 0 &&
-                            deliveredItem.extraQuantity === 0;
-
-                        if (!isStrictMatch) {
-                            throw new Error(
-                                "For completed status, each item must be fully accepted with no damaged/missing/extra"
-                            );
-                        }
-                    }
-
-                    transfer.items[index].receivedQuantity = deliveredItem.receivedQuantity;
-                    transfer.items[index].acceptedQuantity = deliveredItem.acceptedQuantity;
-                    transfer.items[index].damagedQuantity = deliveredItem.damagedQuantity;
-                    transfer.items[index].missingQuantity = deliveredItem.missingQuantity;
-                    transfer.items[index].extraQuantity = deliveredItem.extraQuantity;
-
-                    const senderFilter = {
-                        variant: transferItem.variant,
-                        ...buildLocationFilter(transfer.fromType, transfer.fromId),
-                        quantity: { $gte: transferItem.quantity },
-                        reserved: { $gte: transferItem.quantity },
-                    };
-
-                    const senderUpdate = {
-                        $inc: {
-                            quantity: -transferItem.quantity,
-                            reserved: -transferItem.quantity,
-                        },
-                    };
-
-                    const senderInventory = await Inventory.findOneAndUpdate(senderFilter, senderUpdate, {
-                        new: true,
-                        session,
-                    });
-
-                    if (!senderInventory) {
-                        throw new Error(
-                            `Sender inventory lock/release failed for variant ${String(transferItem.variant)}`
-                        );
-                    }
-
-                    if (deliveredItem.acceptedQuantity > 0) {
-                        const receiverFilter = {
-                            variant: transferItem.variant,
-                            ...buildLocationFilter(transfer.toType, transfer.toId),
-                        };
-
-                        const receiverUpdate = {
-                            $inc: {
-                                quantity: deliveredItem.acceptedQuantity,
-                                available: deliveredItem.acceptedQuantity,
-                            },
-                            $setOnInsert: {
-                                variant: transferItem.variant,
-                                locationType: transfer.toType,
-                                warehouse: transfer.toType === "warehouse" ? transfer.toId : null,
-                                vendor: transfer.toType === "vendor" ? transfer.toId : null,
-                                reserved: 0,
-                            },
-                        };
-
-                        await Inventory.findOneAndUpdate(receiverFilter, receiverUpdate, {
-                            upsert: true,
-                            new: true,
-                            session,
-                        });
-                    }
-
-                    for (const [issueType, field] of Object.entries(ISSUE_TYPE_TO_FIELD)) {
-                        const qty = deliveredItem[field];
-                        if (qty > 0) {
-                            issueDocs.push({
-                                transferId: transfer._id,
-                                variant: transferItem.variant,
-                                issueType,
-                                quantity: qty,
-                                raisedByType: changedByType,
-                                raisedById: actorId,
-                            });
-                        }
-                    }
-                }
-
-                if (status === "completed" && issueDocs.length > 0) {
-                    throw new Error("Cannot mark completed when item discrepancies exist");
-                }
-
-                if (status === "issue_reported" && issueDocs.length === 0) {
-                    throw new Error("Cannot mark issue_reported without discrepancies");
-                }
-
-                if (issueDocs.length > 0) {
-                    await TransferIssue.insertMany(issueDocs, { session, ordered: true });
-                }
-
-                transfer.status = status;
-                transfer.hasIssues = issueDocs.length > 0;
-                transfer.issuesCount = issueDocs.length;
-                if (status === "completed") {
-                    transfer.completedAt = new Date();
-                }
-
-                transfer.statusHistory.push({
-                    status,
-                    changedAt: new Date(),
-                    changedByType,
-                    changedByModel: actorModel,
-                    changedById: actorId,
-                });
-            } else {
-                transfer.status = status;
-                const timestampField = TIMESTAMP_FIELD_MAP[status];
-                if (timestampField) {
-                    transfer[timestampField] = new Date();
-                }
-                transfer.statusHistory.push({
-                    status,
-                    changedAt: new Date(),
-                    changedByType,
-                    changedByModel: actorModel,
-                    changedById: actorId,
-                });
-            }
-
-            transfer.$locals.skipAutoStatusHistory = true;
-            await transfer.save({ session });
-            updatedTransfer = transfer;
-        });
-
-        return res.status(200).json({
-            success: true,
-            message: "Inventory transfer status updated successfully",
-            transfer: updatedTransfer,
-        });
-    } catch (error) {
-        console.error("Change inventory transfer status error:", error);
-
-        const message = error.message || "Internal server error";
-        const statusCode =
-            message.includes("not found") ? 404 : message.includes("Invalid") || message.includes("required")
-                ? 400
-                : 500;
-
-        return res.status(statusCode).json({
-            success: false,
-            message,
-        });
-    } finally {
-        await session.endSession();
-    }
-};
-
 export {
     createInventoryTransferRequest,
     getInventoryTransferRequests,
     getInventoryTransferRequestById,
-    getAllowedInventoryTransferStatuses,
-    changeInventoryTransferStatus,
 };

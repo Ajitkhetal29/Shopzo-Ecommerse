@@ -15,13 +15,9 @@ type inventoryTransfer = {
     toName: string | null;
     status: string;
     initiatedAt: string;
-    hasIssues?: boolean;
-    issuesCount?: number;
-    allowedStatuses?: string[];
 };
 
 type StatusTab = "all" | "active" | "completed" | "reject";
-const SETTLEMENT_STATUSES = new Set(["issue_reported", "completed"]);
 
 const TransferInventoryPage = () => {
 
@@ -31,8 +27,6 @@ const TransferInventoryPage = () => {
     const [error, setError] = useState<string | null>(null);
     const [selectedStatusTab, setSelectedStatusTab] = useState<StatusTab>("all");
     const [selectedTransferId, setSelectedTransferId] = useState<string | null>(null);
-    const [selectedActionStatus, setSelectedActionStatus] = useState<string | null>(null);
-    const [updatingTransferId, setUpdatingTransferId] = useState<string | null>(null);
 
     const fetchInventoryTransferRequests = async () => {
         if (!warehouse?._id) return;
@@ -45,8 +39,6 @@ const TransferInventoryPage = () => {
                     toType: "warehouse",
                     toId: warehouse?._id,
                     status: selectedStatusTab,
-                    actorType: "warehouse",
-                    actorId: warehouse?._id,
                 }
             });
             if (response.data.success) {
@@ -67,40 +59,6 @@ const TransferInventoryPage = () => {
         if (!warehouse?._id) return;
         fetchInventoryTransferRequests();
     }, [warehouse?._id, selectedStatusTab]);
-
-    const handleTransferAction = async (transferId: string, status: string) => {
-        if (!warehouse?._id) return;
-
-        if (SETTLEMENT_STATUSES.has(status)) {
-            setSelectedTransferId(transferId);
-            setSelectedActionStatus(status);
-            return;
-        }
-
-        setUpdatingTransferId(transferId);
-        setError(null);
-        try {
-            await axios.patch(
-                API_ENDPOINTS.UPDATE_INVENTORY_TRANSFER_STATUS,
-                {
-                    transferId,
-                    status,
-                    changedByType: "warehouse",
-                    changedById: warehouse._id,
-                },
-                { withCredentials: true }
-            );
-            await fetchInventoryTransferRequests();
-        } catch (err: unknown) {
-            if (axios.isAxiosError(err)) {
-                setError(err.response?.data?.message || err.message || "Failed to update transfer status");
-            } else {
-                setError("Failed to update transfer status");
-            }
-        } finally {
-            setUpdatingTransferId(null);
-        }
-    };
 
     const formatDate = (date?: string) => {
         if (!date) return "-";
@@ -208,25 +166,13 @@ const TransferInventoryPage = () => {
                             </div>
 
                             <div className="mt-4 flex justify-end gap-2">
-                                {(request.allowedStatuses || []).map((nextStatus) => (
-                                    <button
-                                        key={`${request._id}-${nextStatus}`}
-                                        type="button"
-                                        onClick={() => handleTransferAction(request._id, nextStatus)}
-                                        disabled={updatingTransferId === request._id}
-                                        className="rounded-lg border border-gray-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors capitalize disabled:opacity-60 disabled:cursor-not-allowed"
-                                    >
-                                        {nextStatus.replaceAll("_", " ")}
-                                    </button>
-                                ))}
-                                {request.status === "issue_reported" && (
-                                    <Link
-                                        href={`/transfer-requests/${request._id}/issues`}
-                                        className="rounded-lg border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 transition-colors dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:bg-amber-900/50"
-                                    >
-                                        View Issues{request.issuesCount ? ` (${request.issuesCount})` : ""}
-                                    </Link>
-                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedTransferId(request._id)}
+                                    className="rounded-lg border border-gray-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+                                >
+                                    Change Status
+                                </button>
                                 <Link
                                     href={`/transfer-requests/${request._id}`}
                                     className="rounded-lg border border-gray-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
@@ -244,12 +190,7 @@ const TransferInventoryPage = () => {
             <TransferRequest
                 isOpen={Boolean(selectedTransferId)}
                 transferId={selectedTransferId}
-                forcedStatus={selectedActionStatus}
-                onClose={() => {
-                    setSelectedTransferId(null);
-                    setSelectedActionStatus(null);
-                }}
-                onStatusUpdated={fetchInventoryTransferRequests}
+                onClose={() => setSelectedTransferId(null)}
             />
         </div>
     );

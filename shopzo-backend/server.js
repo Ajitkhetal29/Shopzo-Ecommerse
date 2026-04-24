@@ -29,7 +29,6 @@ import dashboardRouter from "./routes/dashboard.js";
 import inventoryRouter from "./routes/inventory.js";
 import { authMiddleware, vendorAuthMiddleware } from "./middleware/auth.js";
 import inventoryTransferRouter from "./routes/transferInventory.js";
-import transferIssueRouter from "./routes/transferIssue.js";
 import uploadRouter from "./routes/upload.js";
 import helmet from "helmet";
 const app = express();
@@ -93,7 +92,6 @@ app.use("/api/product", productRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/inventory", inventoryRouter);
 app.use("/api/inventoryTransfer", inventoryTransferRouter)
-app.use("/api/transferIssue", transferIssueRouter)
 app.use("/api/upload", uploadRouter);
 
 // this route is for home page and set user
