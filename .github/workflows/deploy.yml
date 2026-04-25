@@ -1,0 +1,46 @@
+name: 🚀 Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🚀 Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "📂 Moving to project..."
+            cd ~/Shopzo-Ecommerse
+
+            echo "📥 Pulling latest code..."
+            git pull origin main
+
+            echo "📦 Backend setup..."
+            cd shopzo-backend
+            npm install
+
+            echo "🔄 Restart backend..."
+            pm2 restart backend
+            pm2 restart backend-backup
+
+            echo "📦 Admin setup..."
+            cd ../shopzo-ops-panel
+            npm install
+            npm run build
+            pm2 restart admin
+
+            echo "📦 Vendor setup..."
+            cd ../shopzo-vendor
+            npm install
+            npm run build
+            pm2 restart vendor
+
+            echo "✅ Deployment complete"
