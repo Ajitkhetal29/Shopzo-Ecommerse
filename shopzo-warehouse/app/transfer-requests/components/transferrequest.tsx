@@ -1,6 +1,6 @@
 "use client";
 
-import { API_ENDPOINTS } from "@/app/lib/api";
+import { API_ENDPOINTS } from "@/lib/api";
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
@@ -10,7 +10,6 @@ import { toast } from "react-toastify";
 type TransferVariant = {
     _id: string;
     sku?: string;
-    images?: string[];
 };
 
 type TransferParty = {
@@ -43,11 +42,12 @@ type TransferRequestProps = {
     isOpen: boolean;
     onClose: () => void;
     transferId: string | null;
+    initialStatus?: string;
     onSuccess?: () => void;
 };
 
-const TransferRequest = ({ isOpen, onClose, transferId, onSuccess }: TransferRequestProps) => {
-    const vendor = useSelector((state: RootState) => state.auth.vendor);
+const TransferRequest = ({ isOpen, onClose, transferId, initialStatus, onSuccess }: TransferRequestProps) => {
+    const warehouse = useSelector((state: RootState) => state.auth.warehouse);
     const [transferRequest, setTransferRequest] = useState<TransferRequestDetail | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -73,11 +73,18 @@ const TransferRequest = ({ isOpen, onClose, transferId, onSuccess }: TransferReq
                         withCredentials: true,
                         params: {
                             currentStatus: response.data.transfer?.status,
-                            actorType: "vendor",
+                            actorType: "warehouse",
                         },
                     }
                 );
-                setAllowedStatuses(statusRulesResponse.data.allowedStatuses ?? []);
+                const allowed = statusRulesResponse.data.allowedStatuses ?? [];
+                setAllowedStatuses(allowed);
+                if (initialStatus && allowed.includes(initialStatus)) {
+                    setSelectedStatus(initialStatus);
+                } else {
+                    setSelectedStatus("");
+                }
+
             }
         } catch (err: unknown) {
             if (axios.isAxiosError(err)) {
@@ -99,7 +106,7 @@ const TransferRequest = ({ isOpen, onClose, transferId, onSuccess }: TransferReq
             return;
         }
         fetchTransferRequest();
-    }, [isOpen, transferId]);
+    }, [isOpen, transferId, initialStatus]);
 
     if (!isOpen) return null;
 
@@ -113,7 +120,7 @@ const TransferRequest = ({ isOpen, onClose, transferId, onSuccess }: TransferReq
     const totalQuantity = transferRequest?.items?.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0) ?? 0;
 
     const handleChangeStatus = async () => {
-        if (!transferRequest?._id || !selectedStatus || !vendor?._id) return;
+        if (!transferRequest?._id || !selectedStatus || !warehouse?._id) return;
 
         setUpdatingStatus(true);
         try {
@@ -122,8 +129,8 @@ const TransferRequest = ({ isOpen, onClose, transferId, onSuccess }: TransferReq
                 {
                     transferId: transferRequest._id,
                     newStatus: selectedStatus,
-                    userType: "vendor",
-                    userId: vendor._id,
+                    userType: "warehouse",
+                    userId: warehouse._id,
                 },
                 { withCredentials: true }
             );

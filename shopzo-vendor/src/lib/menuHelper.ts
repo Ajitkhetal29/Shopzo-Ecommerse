@@ -3,6 +3,7 @@ export const VENDOR_MENU_ITEMS = [
   { label: "Products", href: "/products" },
   { label: "Inventory", href: "/inventory" },
   { label: "Transfer Inventory", href: "/TransferInventory" },
+  { label: "Transfer Issues", href: "/TransferIssues" },
   { label: "Orders", href: "/orders" },
   { label: "Team", href: "/Team" },
   { label: "History", href: "/History" },

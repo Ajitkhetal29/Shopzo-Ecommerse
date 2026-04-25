@@ -34,6 +34,27 @@ const inventorySchema = new mongoose.Schema(
       min: 0,
     },
 
+    /** Short / in-dispute (e.g. transfer line missing) — not sellable */
+    missingHold: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    /** Arrived but not sellable (warehouse quarantine / damaged) */
+    damagedQty: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    /** Surplus at receiver, not confirmed into sellable */
+    extraHold: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     locationType: {
       type: String,
       enum: ["warehouse", "vendor"],

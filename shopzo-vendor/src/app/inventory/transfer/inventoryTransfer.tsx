@@ -4,6 +4,7 @@ import { API_ENDPOINTS } from "@/app/lib/api";
 import { RootState } from "@/store";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
+import { sellableAvailable } from "@/lib/inventoryDisplay";
 
 type variant = {
   name?: string;
@@ -16,6 +17,9 @@ type Inventory = {
   quantity: number;
   reserved?: number;
   available?: number;
+  missingHold?: number;
+  damagedQty?: number;
+  extraHold?: number;
   /** Populated from API as `{ _id, name, sku, images }` or raw ObjectId string */
   variant?: (variant & { _id?: string }) | string;
 };
@@ -138,7 +142,9 @@ const InventoryTransfer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
         if (row.quantity === "") return { ...row, inventoryId };
 
         const parsedQty = Number(row.quantity);
-        const clampedQty = Math.min(Math.max(parsedQty, 1), selectedInv.quantity);
+        const maxSellable = sellableAvailable(selectedInv);
+        if (maxSellable <= 0) return { ...row, inventoryId, quantity: "" };
+        const clampedQty = Math.min(Math.max(parsedQty, 1), maxSellable);
         return { inventoryId, quantity: String(clampedQty) };
       })
     );
@@ -154,9 +160,9 @@ const InventoryTransfer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
         if (Number.isNaN(parsedQty)) return row;
 
         const selectedInv = inventory.find((inv) => inv._id === row.inventoryId);
-        const maxQty = selectedInv?.quantity ?? Number.MAX_SAFE_INTEGER;
-        const safeMaxQty = Math.max(maxQty, 0);
-        const clampedQty = Math.min(Math.max(parsedQty, 1), safeMaxQty);
+        const maxQty = selectedInv ? sellableAvailable(selectedInv) : Number.MAX_SAFE_INTEGER;
+        if (maxQty <= 0) return { ...row, quantity: "" };
+        const clampedQty = Math.min(Math.max(parsedQty, 1), maxQty);
         return { ...row, quantity: String(clampedQty) };
       })
     );
@@ -193,11 +199,14 @@ const InventoryTransfer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
       return;
     }
 
+    const totalQuantity = variantsData.reduce((sum, row) => sum + row.quantity, 0);
+
     try {
       const response = await axios.post(
         API_ENDPOINTS.CREATE_INVENTORY_TRANSFER,
         {
           variantsData,
+          totalQuantity,
           fromType: "vendor",
           fromId: vendor._id,
           toType: "warehouse",
@@ -257,9 +266,10 @@ const InventoryTransfer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
             const availableInventory = inventory.filter(
               (inv) =>
                 (inv._id === row.inventoryId || !selectedInventoryIds.includes(inv._id)) &&
-                (inv.quantity > 0 || inv._id === row.inventoryId)
+                (sellableAvailable(inv) > 0 || inv._id === row.inventoryId)
             );
             const selectedInv = inventory.find((inv) => inv._id === row.inventoryId);
+            const maxSellable = selectedInv ? sellableAvailable(selectedInv) : 0;
 
             return (
               <div key={i} className="grid grid-cols-1 md:grid-cols-12 gap-3.5 rounded-xl p-4 border border-slate-700/80 bg-slate-800/80">
@@ -273,7 +283,7 @@ const InventoryTransfer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                     <option value="">Select inventory</option>
                     {availableInventory.map((inv) => (
                       <option key={inv._id} value={inv._id}>
-                        {getVariantSku(inv)} (stock: {inv.quantity})
+                        {getVariantSku(inv)} (avail: {sellableAvailable(inv)}, total: {inv.quantity})
                       </option>
                     ))}
                   </select>
@@ -284,8 +294,8 @@ const InventoryTransfer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                   <input
                     type="number"
                     min={1}
-                    max={selectedInv?.quantity}
-                    disabled={!row.inventoryId}
+                    max={maxSellable > 0 ? maxSellable : undefined}
+                    disabled={!row.inventoryId || maxSellable <= 0}
                     className="w-full h-10 rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/70 focus:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed"
                     placeholder="0"
                     value={row.quantity}
@@ -293,7 +303,7 @@ const InventoryTransfer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                   />
                   {selectedInv && (
                     <p className="text-xs text-slate-400 mt-1.5">
-                      Max: {selectedInv.quantity}
+                      Max (sellable): {maxSellable} · Total on-hand: {selectedInv.quantity}
                     </p>
                   )}
                 </div>

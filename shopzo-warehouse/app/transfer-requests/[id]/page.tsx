@@ -1,6 +1,6 @@
 "use client";
 
-import { API_ENDPOINTS } from "@/app/lib/api";
+import { API_ENDPOINTS } from "@/lib/api";
 import axios from "axios";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -87,9 +87,7 @@ const TransferRequestDetailPage = () => {
     };
 
     const getChangedByName = (history: TransferStatusHistory) => {
-        if (history.changedByName) {
-            return history.changedByName;
-        }
+        if (history.changedByName) return history.changedByName;
         if (history.changedById && typeof history.changedById === "object" && "name" in history.changedById) {
             return history.changedById.name || "-";
         }
@@ -110,11 +108,8 @@ const TransferRequestDetailPage = () => {
         return (
             <div className="min-h-screen bg-gray-50 px-4 py-8 dark:bg-slate-900">
                 <div className="mx-auto max-w-5xl">
-                    <Link
-                        href="/TransferInventory"
-                        className="mb-4 inline-flex text-sm text-gray-700 underline dark:text-slate-200"
-                    >
-                        Back to Transfer Inventory
+                    <Link href="/transfer-requests" className="mb-4 inline-flex text-sm text-gray-700 underline dark:text-slate-200">
+                        Back to Transfer Requests
                     </Link>
                     <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-900/20 dark:text-red-300">
                         {error}
@@ -128,11 +123,8 @@ const TransferRequestDetailPage = () => {
         return (
             <div className="min-h-screen bg-gray-50 px-4 py-8 dark:bg-slate-900">
                 <div className="mx-auto max-w-5xl">
-                    <Link
-                        href="/TransferInventory"
-                        className="mb-4 inline-flex text-sm text-gray-700 underline dark:text-slate-200"
-                    >
-                        Back to Transfer Inventory
+                    <Link href="/transfer-requests" className="mb-4 inline-flex text-sm text-gray-700 underline dark:text-slate-200">
+                        Back to Transfer Requests
                     </Link>
                     <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                         Transfer request not found.
@@ -147,8 +139,8 @@ const TransferRequestDetailPage = () => {
             <div className="mx-auto max-w-5xl space-y-6">
                 <div className="flex items-center justify-between gap-3">
                     <div>
-                        <Link href="/TransferInventory" className="text-sm text-gray-700 underline dark:text-slate-200">
-                            Back to Transfer Inventory
+                        <Link href="/transfer-requests" className="text-sm text-gray-700 underline dark:text-slate-200">
+                            Back to Transfer Requests
                         </Link>
                         <h1 className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">Transfer Request Details</h1>
                     </div>

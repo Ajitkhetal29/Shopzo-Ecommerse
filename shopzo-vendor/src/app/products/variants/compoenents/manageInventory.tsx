@@ -5,6 +5,7 @@ import { ProductVariant } from "@/store/types/product";
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
+import { sellableAvailable } from "@/lib/inventoryDisplay";
 
 function rowVariantId(row: { variant: unknown }): string {
   const v = row.variant;
@@ -22,6 +23,9 @@ type InventoryListRow = {
   quantity: number;
   reserved?: number;
   available?: number;
+  missingHold?: number;
+  damagedQty?: number;
+  extraHold?: number;
   locationType?: string;
   variant?: PopulatedVariant | string;
   vendor?: PopulatedVendor | string;
@@ -63,10 +67,18 @@ export default function ManageInventory({
 
   const qtyNum = quantity === "" ? 0 : Number(quantity);
 
-  const availablePreview = useMemo(
-    () => Math.max(0, qtyNum - Number(reserved)),
-    [qtyNum, reserved]
-  );
+  const availablePreview = useMemo(() => {
+    if (row) {
+      return sellableAvailable({
+        quantity: qtyNum,
+        reserved,
+        missingHold: row.missingHold,
+        damagedQty: row.damagedQty,
+        extraHold: row.extraHold,
+      });
+    }
+    return Math.max(0, qtyNum - Number(reserved));
+  }, [qtyNum, reserved, row]);
 
   useEffect(() => {
     if (!open || !variant?._id || !vendorId) return;
@@ -222,15 +234,27 @@ export default function ManageInventory({
                 <dt className={labelClass()}>Location type</dt>
                 <dd className={valueClass()}>{locationLabel}</dd>
               </div>
-              {inventoryId ? (
+              {inventoryId && row ? (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <dt className={labelClass()}>Reserved</dt>
                     <dd className={valueClass()}>{reserved}</dd>
                   </div>
                   <div>
-                    <dt className={labelClass()}>Available</dt>
+                    <dt className={labelClass()}>Sellable (available)</dt>
                     <dd className={valueClass()}>{availablePreview}</dd>
+                  </div>
+                  <div>
+                    <dt className={labelClass()}>Missing hold</dt>
+                    <dd className={valueClass()}>{row.missingHold ?? 0}</dd>
+                  </div>
+                  <div>
+                    <dt className={labelClass()}>Damaged / quarantine</dt>
+                    <dd className={valueClass()}>{row.damagedQty ?? 0}</dd>
+                  </div>
+                  <div className="col-span-2">
+                    <dt className={labelClass()}>Extra hold (unconfirmed)</dt>
+                    <dd className={valueClass()}>{row.extraHold ?? 0}</dd>
                   </div>
                 </div>
               ) : null}
@@ -255,7 +279,8 @@ export default function ManageInventory({
             />
             {inventoryId ? (
               <p className="text-xs text-gray-500 dark:text-gray-500 mb-4">
-                Available updates as quantity − reserved (reserved is not edited here).
+                Editing quantity updates total on-hand. Sellable follows: total − reserved − missing − damaged − extra
+                hold (backend recomputes).
               </p>
             ) : (
               <p className="text-xs text-gray-500 dark:text-gray-500 mb-4">

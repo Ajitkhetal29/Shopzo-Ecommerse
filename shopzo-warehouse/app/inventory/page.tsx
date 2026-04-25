@@ -5,12 +5,16 @@ import axios from "axios";
 import { API_ENDPOINTS } from "@/lib/api";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
+import { sellableAvailable } from "@/lib/inventoryDisplay";
 
 type InventoryRow = {
   _id: string;
   quantity: number;
   available: number;
   reserved?: number;
+  missingHold?: number;
+  damagedQty?: number;
+  extraHold?: number;
   variant?: {
     name?: string;
     sku?: string;
@@ -101,7 +105,7 @@ export default function InventoryPage() {
             Inventory
           </h1>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Stock by variant
+            Available = sellable · Damaged / extra hold are not sellable until resolved
           </p>
         </div>
 
@@ -138,6 +142,15 @@ export default function InventoryPage() {
                     Reserved
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Missing
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Damaged
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Extra hold
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                     Total
                   </th>
                 </tr>
@@ -152,10 +165,19 @@ export default function InventoryPage() {
                       {row.variant?.name || "-"}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-gray-900 dark:text-white">
-                      {row.available || 0}
+                      {sellableAvailable(row)}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">
                       {row.reserved || 0}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-amber-700 dark:text-amber-400">
+                      {row.missingHold ?? 0}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-orange-700 dark:text-orange-400">
+                      {row.damagedQty ?? 0}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-violet-700 dark:text-violet-400">
+                      {row.extraHold ?? 0}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-gray-900 dark:text-white">
                       {row.quantity || 0}
