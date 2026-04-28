@@ -1,10 +1,9 @@
 "use client";
 
-import React, { use, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { API_ENDPOINTS } from "@/lib/api";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { UseSelector } from "react-redux";
 import { RootState } from "@/store";
 import { useSelector } from "react-redux";
 
@@ -45,7 +44,7 @@ type Reporting = {
 
 
 
-const userReportingPage = () => {
+const UserReportingPage = () => {
 
 
     const departments = useSelector((state: RootState) => state.general.departments);
@@ -346,28 +345,34 @@ const userReportingPage = () => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-slate-900">
-                <div className="text-lg text-gray-600 dark:text-gray-400">Loading...</div>
+            <div className="flex items-center justify-center py-16">
+                <div className="text-center">
+                    <div className="mx-auto mb-3 h-7 w-7 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Loading reporting data...</p>
+                </div>
             </div>
-        )
+        );
     }
 
     if (error) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-slate-900">
-                <div className="text-red-600 dark:text-red-400">{error}</div>
+            <div className="rounded-xl border border-red-200/80 bg-red-50/90 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200">
+                {error}
             </div>
-        )
+        );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-slate-900 py-8 px-4 sm:px-6 lg:px-8 transition-colors">
-            <div className="max-w-7xl mx-auto">
-                {/* Header Section */}
-                <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-7 sm:space-y-8">
+            <div className="border-b border-slate-200/80 pb-6 dark:border-slate-700/60">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                        <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">User Reporting</h1>
-                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Manage reporting relationships between users</p>
+                        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-3xl lg:text-[2rem] lg:leading-tight">
+                            User reporting
+                        </h1>
+                        <p className="mt-2 max-w-2xl text-[0.9375rem] leading-relaxed text-slate-600 dark:text-slate-400">
+                            Manage reporting relationships between users and team leads.
+                        </p>
                     </div>
                     <div>
                         <select
@@ -378,7 +383,7 @@ const userReportingPage = () => {
                                 setFilter({ ...filter, department: e.target.value })
                                 setPagination(prev => ({ ...prev, page: 1 }))
                             }}
-                            className="bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 transition-colors px-3 py-2"
+                            className="h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-amber-500/60 focus:ring-2 focus:ring-amber-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
                         >
                             <option value="">All Departments</option>
                             {departments.map((dept) => (
@@ -389,9 +394,11 @@ const userReportingPage = () => {
                         </select>
                     </div>
                 </div>
+            </div>
 
-                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 p-6 mb-6">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Add User Reporting</h2>
+            <div className="rounded-2xl border border-slate-200/80 bg-card p-5 shadow-sm dark:border-slate-600/80 dark:bg-slate-800/80 sm:p-6">
+                <h2 className="mb-1 text-lg font-semibold tracking-tight text-slate-900 dark:text-white">Add user reporting</h2>
+                <p className="mb-6 text-[0.8125rem] text-slate-500 dark:text-slate-400">Define who reports to whom in each department</p>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
@@ -419,7 +426,7 @@ const userReportingPage = () => {
                                             setUsers([]);
                                         }
                                     }}
-                                    className="w-full px-4 py-2.5 text-gray-900 dark:text-white bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-colors text-sm"
+                                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-amber-500/60 focus:ring-2 focus:ring-amber-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                                 >
                                     <option value="">Select Department</option>
                                     {departments.map((dept) => (
@@ -461,7 +468,7 @@ const userReportingPage = () => {
                                             setReportsTo([]);
                                         }
                                     }}
-                                    className="w-full px-4 py-2.5 text-gray-900 dark:text-white bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-colors text-sm"
+                                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-amber-500/60 focus:ring-2 focus:ring-amber-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                                     required
                                 >
                                     <option value="">Select user</option>
@@ -481,7 +488,7 @@ const userReportingPage = () => {
                                     value={formData.reportingToId}
                                     onChange={handleInputChange}
                                     disabled={!!existingReporting}
-                                    className="w-full px-4 py-2.5 text-gray-900 dark:text-white bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-amber-500/60 focus:ring-2 focus:ring-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                                     required
                                 >
                                     <option value="">Select reporting to</option>
@@ -495,7 +502,7 @@ const userReportingPage = () => {
                                 <button
                                     type="submit"
                                     disabled={!!existingReporting}
-                                    className="w-full inline-flex items-center justify-center px-4 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-200 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:hover:bg-gray-400 transition-colors shadow-sm"
+                                    className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-amber-600 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                                 >
                                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -690,47 +697,47 @@ const userReportingPage = () => {
 
                 {/* Reporting Relationships Table */}
                 {!userReporting || userReporting.length === 0 ? (
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
-                        <div className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-card shadow-sm dark:border-slate-600/80 dark:bg-slate-800/80">
+                        <div className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
                             No reporting relationships found. Create your first reporting relationship above.
                         </div>
                     </div>
                 ) : (
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
+                    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-card shadow-sm dark:border-slate-600/80 dark:bg-slate-800/80">
                         <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
-                                <thead className="bg-gray-50 dark:bg-slate-700">
+                            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                                <thead className="bg-slate-50 dark:bg-slate-700/50">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">User</th>
-                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Reporting To</th>
-                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Department</th>
-                                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">User</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">Reporting To</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">Department</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
+                                <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-800/80">
                                     {userReporting.map((report) => {
                                         const user = typeof report.user === 'object' ? report.user : { name: 'N/A', email: 'N/A' };
                                         const reportingTo = typeof report.reportingTo === 'object' ? report.reportingTo : { name: 'N/A', email: 'N/A' };
                                         const department = typeof report.department === 'object' ? report.department : { name: 'N/A' };
                                         return (
-                                            <tr key={report._id} className="hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                                            <tr key={report._id} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/40">
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm font-medium text-gray-900 dark:text-white">{user.name}</div>
-                                                    <div className="text-sm text-gray-600 dark:text-gray-400">{user.email}</div>
+                                                    <div className="text-sm font-medium text-slate-900 dark:text-white">{user.name}</div>
+                                                    <div className="text-sm text-slate-600 dark:text-slate-400">{user.email}</div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm font-medium text-gray-900 dark:text-white">{reportingTo.name}</div>
-                                                    <div className="text-sm text-gray-600 dark:text-gray-400">{reportingTo.email}</div>
+                                                    <div className="text-sm font-medium text-slate-900 dark:text-white">{reportingTo.name}</div>
+                                                    <div className="text-sm text-slate-600 dark:text-slate-400">{reportingTo.email}</div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 capitalize">
+                                                    <span className="inline-flex items-center rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-medium capitalize text-sky-800 dark:bg-sky-900/40 dark:text-sky-200">
                                                         {department.name}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                                                     <button
                                                         onClick={() => handleDeleteReporting(report._id)}
-                                                        className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium transition-colors"
+                                                        className="font-semibold text-red-600 transition-colors hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                                                     >
                                                         Delete
                                                     </button>
@@ -740,8 +747,8 @@ const userReportingPage = () => {
                                     })}
                                 </tbody>
                             </table>
-                            <div className="px-6 py-3 bg-gray-50 dark:bg-slate-700 flex items-center justify-between">
-                                <div className="text-sm text-gray-700 dark:text-gray-400">
+                            <div className="flex items-center justify-between bg-slate-50 px-6 py-3 dark:bg-slate-700/40">
+                                <div className="text-sm text-slate-700 dark:text-slate-300">
                                     Showing {(pagination.page - 1) * pagination.limit + 1} to {Math.min(pagination.page * pagination.limit, totalReportings)} of {totalReportings} relationships
                                 </div>
                                 <div className="flex gap-2">
@@ -766,7 +773,7 @@ const userReportingPage = () => {
                                                     key={pageNum}
                                                     onClick={() => setPagination(prev => ({ ...prev, page: pageNum }))}
                                                     className={`mx-1 px-3 py-1 rounded-md text-sm font-medium ${pagination.page === pageNum
-                                                        ? 'bg-blue-600 text-white'
+                                                        ? 'bg-amber-600 text-white'
                                                         : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors'
                                                         }`}
                                                 >
@@ -792,7 +799,7 @@ const userReportingPage = () => {
                                     <select
                                         value={pagination.limit}
                                         onChange={(e) => setPagination(prev => ({ ...prev, limit: parseInt(e.target.value) }))}
-                                        className="ml-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                        className="ml-3 rounded-md border border-slate-300 bg-white text-sm text-slate-700 transition-colors focus:border-amber-500 focus:ring-amber-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
                                     >
 
                                         <option value={10}>10 </option>
@@ -806,7 +813,6 @@ const userReportingPage = () => {
                     </div>
                 )}
             </div>
-        </div>
     );
 
 
@@ -816,4 +822,4 @@ const userReportingPage = () => {
 
 };
 
-export default userReportingPage;
+export default UserReportingPage;

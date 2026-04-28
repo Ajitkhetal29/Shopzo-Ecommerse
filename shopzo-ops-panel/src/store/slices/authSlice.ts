@@ -12,7 +12,7 @@ type Role = {
   code?: string;
 };
 
-type User = {
+export type User = {
   _id: string;
   id?: string; // For backward compatibility
   name: string;

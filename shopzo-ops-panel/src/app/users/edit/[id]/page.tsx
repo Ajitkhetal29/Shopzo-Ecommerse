@@ -1,7 +1,7 @@
 "use client";
 import { useParams, useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
-import { RootState } from "@/store";
+import { RootState, AppDispatch } from "@/store";
 import { useState, useEffect, useRef } from "react";
 import { User } from "@/store/types/users";
 
@@ -25,10 +25,10 @@ import { toast } from "react-toastify";
 
 
 const EditUserPage = () => {
-    const { id } = useParams();
+    const { id } = useParams<{ id: string }>();
     const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
-    const dispatch = useDispatch();
+    const dispatch = useDispatch<AppDispatch>();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [formData, setFormData] = useState<{
@@ -150,30 +150,22 @@ const EditUserPage = () => {
     }, [id, fetchedUser, dispatch]);
 
     if (isLoading && !formData) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-                    <p className="text-base font-medium text-gray-900">Loading user data...</p>
-                </div>
-            </div>
-        );
+      return (
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="mx-auto mb-3 h-7 w-7 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Loading user data...</p>
+          </div>
+        </div>
+      );
     }
 
     if (error && !formData) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <p className="text-red-600 mb-4">{error}</p>
-                    <button
-                        onClick={() => router.push('/users')}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                    >
-                        Back to Users
-                    </button>
-                </div>
-            </div>
-        );
+      return (
+        <div className="rounded-xl border border-red-200/80 bg-red-50/90 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200">
+          {error}
+        </div>
+      );
     }
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -215,28 +207,32 @@ const EditUserPage = () => {
 
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-slate-900 py-8 px-4 sm:px-6 lg:px-8 transition-colors">
-            <div className="max-w-3xl mx-auto">
-                <div className="mb-8">
-                    <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">Edit User</h1>
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Update user information and permissions</p>
+        <div className="space-y-7 sm:space-y-8">
+            <div className="border-b border-slate-200/80 pb-6 dark:border-slate-700/60">
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-3xl lg:text-[2rem] lg:leading-tight">
+                    Edit user
+                </h1>
+                <p className="mt-2 max-w-2xl text-[0.9375rem] leading-relaxed text-slate-600 dark:text-slate-400">
+                    Update user profile, department, and role permissions.
+                </p>
+            </div>
+
+            {error ? (
+                <div className="rounded-xl border border-red-200/80 bg-red-50/90 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200">
+                    {error}
+                </div>
+            ) : null}
+
+            <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-card shadow-sm dark:border-slate-600/80 dark:bg-slate-800/80">
+                <div className="border-b border-slate-200/80 bg-slate-50 px-6 py-4 dark:border-slate-700/80 dark:bg-slate-700/40">
+                    <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">User details</h2>
                 </div>
 
-                {error && (
-                    <div className="mx-6 mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-                    </div>
-                )}
-
-                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
-                    <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-700">
-                        <h2 className="text-lg font-medium text-gray-900 dark:text-white">User Details</h2>
-                    </div>
-
-                    <form onSubmit={handleSubmit}>
-                        <div className="p-6 space-y-5">
+                <form onSubmit={handleSubmit}>
+                    <div className="space-y-5 p-6">
+                        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
                                     Name <span className="text-red-500">*</span>
                                 </label>
                                 <input
@@ -245,14 +241,14 @@ const EditUserPage = () => {
                                     name="name"
                                     value={formData?.name || ''}
                                     onChange={handleInputChange}
-                                    className="w-full text-gray-900 dark:text-white bg-white dark:bg-slate-700 px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm"
+                                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-amber-500/60 focus:ring-2 focus:ring-amber-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                                     placeholder="Enter user name"
                                     required
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
                                     Email <span className="text-red-500">*</span>
                                 </label>
                                 <input
@@ -261,14 +257,16 @@ const EditUserPage = () => {
                                     name="email"
                                     value={formData?.email || ''}
                                     onChange={handleInputChange}
-                                    className="w-full text-gray-900 dark:text-white bg-white dark:bg-slate-700 px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm"
+                                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-amber-500/60 focus:ring-2 focus:ring-amber-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                                     placeholder="Enter email address"
                                     required
                                 />
                             </div>
+                        </div>
 
+                        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
                                     Department <span className="text-red-500">*</span>
                                 </label>
                                 <select
@@ -276,7 +274,7 @@ const EditUserPage = () => {
                                     name="department"
                                     value={formData?.department || ''}
                                     onChange={handleInputChange}
-                                    className="w-full px-4 py-2.5 text-gray-900 dark:text-white bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm"
+                                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-amber-500/60 focus:ring-2 focus:ring-amber-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                                     required
                                 >
                                     <option value="">Select department</option>
@@ -289,7 +287,7 @@ const EditUserPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
                                     Role <span className="text-red-500">*</span>
                                 </label>
                                 <select
@@ -297,7 +295,7 @@ const EditUserPage = () => {
                                     name="role"
                                     value={formData?.role || ''}
                                     onChange={handleInputChange}
-                                    className="w-full px-4 py-2.5 text-gray-900 dark:text-white bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm disabled:opacity-50"
+                                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-amber-500/60 focus:ring-2 focus:ring-amber-500/20 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                                     required
                                     disabled={!formData?.department}
                                 >
@@ -311,29 +309,29 @@ const EditUserPage = () => {
                                     ))}
                                 </select>
                             </div>
+                        </div>
 
-                            <div className="flex gap-3 pt-4">
+                            <div className="flex flex-col gap-3 pt-4 sm:flex-row">
                                 <button
                                     type="button"
                                     onClick={() => router.push('/users')}
-                                    className="px-6 py-3 rounded-lg font-medium text-sm transition-all bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-gray-500 dark:focus:ring-slate-500 focus:ring-offset-2"
+                                    className="rounded-xl border border-slate-300 px-6 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className={`flex-1 px-6 py-3 rounded-lg font-medium text-sm transition-all ${isLoading
-                                            ? "bg-gray-400 text-white cursor-not-allowed"
-                                            : "bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:ring-offset-2 shadow-sm"
+                                    className={`flex-1 rounded-xl px-6 py-2.5 text-sm font-semibold transition-all ${isLoading
+                                            ? "cursor-not-allowed bg-slate-400 text-white"
+                                            : "bg-amber-600 text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:ring-offset-2"
                                         }`}
                                 >
                                     {isLoading ? "Updating..." : "Update User"}
                                 </button>
                             </div>
-                        </div>
-                    </form>
-                </div>
+                    </div>
+                </form>
             </div>
         </div>
     );
