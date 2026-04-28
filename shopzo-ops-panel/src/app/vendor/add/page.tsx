@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/store";
 import { addVendor } from "@/store/slices/vendorSlice";
-import { Vendor } from "@/store/types/vendor";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { API_ENDPOINTS } from "@/lib/api";
@@ -12,388 +11,384 @@ import axios from "axios";
 import { Address } from "@/store/types/address";
 import { getAddress } from "@/services/address";
 
-
 const MapBase = dynamic(() => import("@/app/components/MapBase"), {
-    ssr: false,
-    loading: () => <div className="h-[500px] flex items-center justify-center">
-        Loading map...
+  ssr: false,
+  loading: () => (
+    <div className="flex h-[500px] items-center justify-center bg-slate-50 text-sm text-slate-500 dark:bg-slate-800/80 dark:text-slate-400">
+      Loading map...
     </div>
+  ),
 });
 
-
 export default function AddVendorPage() {
+  const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [address, setAddress] = useState<Address | null>(null);
+  const [formdata, setFormdata] = useState({
+    name: "",
+    email: "",
+    password: "",
+    contactNumber: "",
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingAddress, setIsLoadingAddress] = useState(false);
 
-    const router = useRouter();
-    const dispatch = useDispatch<AppDispatch>();
-    const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
-    const [address, setAddress] = useState<Address | null>(null);
-    const [formdata, setFormdata] = useState({
-        name: "",
-        email: "",
-        password: "",
-        contactNumber: "",
-    });
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isLoadingAddress, setIsLoadingAddress] = useState(false);
+  const inputClass =
+    "h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm transition-colors placeholder:text-slate-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder:text-slate-400";
+  const disabledInputClass =
+    "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-slate-600 dark:bg-slate-600 dark:text-slate-500";
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormdata({ ...formdata, [e.target.name]: e.target.value });
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormdata({ ...formdata, [e.target.name]: e.target.value });
+  };
+
+  const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (address) {
+      setAddress({ ...address, [e.target.name]: e.target.value } as Address);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+
+    if (!formdata.name || !formdata.email || !formdata.password || !formdata.contactNumber) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    if (!location) {
+      toast.error("Please select a location on the map");
+      return;
+    }
+    if (!address || !address.formatted || !address.state || !address.city || !address.pincode) {
+      toast.error("Please ensure address is properly loaded");
+      return;
     }
 
-    const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        if (address) {
-            setAddress({ ...address, [e.target.name]: e.target.value } as Address);
-        }
+    setIsSubmitting(true);
+    try {
+      const vendorData = {
+        name: formdata.name,
+        email: formdata.email,
+        password: formdata.password,
+        contactNumber: formdata.contactNumber,
+        location: {
+          lat: location.lat,
+          lng: location.lng,
+        },
+        address: {
+          formatted: address.formatted,
+          state: address.state,
+          city: address.city,
+          pincode: address.pincode,
+          landmark: address.landmark || undefined,
+        },
+      };
+
+      const response = await axios.post(API_ENDPOINTS.CREATE_VENDOR, vendorData, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        dispatch(addVendor(response.data.vendor));
+        toast.success("Vendor added successfully");
+        router.push("/vendor");
+      } else {
+        toast.error(response.data.message || "Failed to add vendor");
+      }
+    } catch (error: unknown) {
+      console.error("Submit error:", error);
+      const errorMessage =
+        axios.isAxiosError(error) && error.response?.data?.message
+          ? error.response.data.message
+          : "Error adding vendor. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
     }
+  };
 
-    const handleSubmit = async () => {
-        // Prevent double submit
-        if (isSubmitting) return;
-
-        // Validation
-        if (!formdata.name || !formdata.email || !formdata.password || !formdata.contactNumber) {
-            toast.error("Please fill in all required fields");
-            return;
-        }
-        if (!location) {
-            toast.error("Please select a location on the map");
-            return;
-        }
-        if (!address || !address.formatted || !address.state || !address.city || !address.pincode) {
-            toast.error("Please ensure address is properly loaded");
-            return;
-        }
-
-        setIsSubmitting(true);
-        try {
-            const vendorData = {
-                name: formdata.name,
-                email: formdata.email,
-                password: formdata.password,
-                contactNumber: formdata.contactNumber,
-                location: {
-                    lat: location.lat,
-                    lng: location.lng,
-                },
-                address: {
-                    formatted: address.formatted,
-                    state: address.state,
-                    city: address.city,
-                    pincode: address.pincode,
-                    landmark: address.landmark || undefined,
-                }
-            };
-            
-            const response = await axios.post(API_ENDPOINTS.CREATE_VENDOR, vendorData, {
-                withCredentials: true
-            });
-
-            if (response.data.success) {
-                dispatch(addVendor(response.data.vendor));
-                toast.success("Vendor added successfully");
-                router.push("/vendor");
-            } else {
-                toast.error(response.data.message || "Failed to add vendor");
-            }
-        } catch (error: any) {
-            console.error("Submit error:", error);
-            toast.error(error.response?.data?.message || "Error adding vendor. Please try again.");
-        } finally {
-            setIsSubmitting(false);
-        }
+  const handleGetAddress = async (lat: number, lng: number) => {
+    setIsLoadingAddress(true);
+    try {
+      const addressData = await getAddress({ lat, lng });
+      if (addressData) {
+        setAddress({
+          ...addressData,
+        });
+      } else {
+        toast.error("Failed to fetch address. Please try selecting the location again.");
+      }
+    } catch (error) {
+      console.error("Error fetching address:", error);
+      toast.error("Failed to fetch address. Please try selecting the location again.");
+    } finally {
+      setIsLoadingAddress(false);
     }
+  };
 
-    const handleGetAddress = async (lat: number, lng: number) => {
-        setIsLoadingAddress(true);
-        try {
-            const addressData = await getAddress({ lat, lng });
-            if (addressData) {
-                setAddress({
-                    ...addressData,
-                });
-            } else {
-                toast.error("Failed to fetch address. Please try selecting the location again.");
-            }
-        } catch (error) {
-            console.error("Error fetching address:", error);
-            toast.error("Failed to fetch address. Please try selecting the location again.");
-        } finally {
-            setIsLoadingAddress(false);
-        }
-    };
+  return (
+    <div className="space-y-7 sm:space-y-8">
+      <div className="border-b border-slate-200/80 pb-6 dark:border-slate-700/60">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-3xl lg:text-[2rem] lg:leading-tight">
+          Add New Vendor
+        </h1>
+        <p className="mt-2 max-w-3xl text-[0.9375rem] leading-relaxed text-slate-600 dark:text-slate-400">
+          Select a location and fill in vendor details to provision a new vendor account.
+        </p>
+      </div>
 
-    return (
-        <div className="min-h-screen bg-gray-50 dark:bg-slate-900 py-8 px-4 sm:px-6 lg:px-8 transition-colors">
-            <div className="max-w-7xl mx-auto">
-                <div className="mb-8">
-                    <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">Add New Vendor</h1>
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Select a location on the map and fill in the vendor details</p>
-                </div>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Map Section */}
-                    <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
-                        <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-700">
-                            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Select Location</h2>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Click on the map or search for an address</p>
-                        </div>
-                        <div className="h-[500px] w-full relative">
-                            <MapBase
-                                onLocationSelect={(lat, lng) => {
-                                    setLocation({ lat, lng });
-                                    handleGetAddress(lat, lng);
-                                }}
-                            />
-                        </div>
-                        {location && (  
-                            <div className="px-6 py-3 bg-blue-50 dark:bg-blue-900/20 border-t border-gray-200 dark:border-slate-700">
-                                <p className="text-xs font-medium text-blue-900 dark:text-blue-200">
-                                    Location Selected: <span className="text-blue-700 dark:text-blue-300">{location.lat.toFixed(6)}, {location.lng.toFixed(6)}</span>
-                                </p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Form Section */}
-                    <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 relative">
-                        <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-700">
-                            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Vendor Details</h2>
-                        </div>
-                        
-                        {isLoadingAddress && (
-                            <div className="absolute inset-0 bg-white dark:bg-slate-800 bg-opacity-95 dark:bg-opacity-95 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
-                                <div className="text-center">
-                                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mb-4"></div>
-                                    <p className="text-base font-medium text-gray-900 dark:text-white">Fetching address details...</p>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Please wait while we load the address information</p>
-                                </div>
-                            </div>
-                        )}
-                        
-                        <div className="p-6 space-y-5">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Vendor Name <span className="text-red-500">*</span>
-                                </label>
-                                <input 
-                                    type="text" 
-                                    required 
-                                    name="name" 
-                                    value={formdata.name} 
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2.5 text-gray-900 dark:text-white bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm"
-                                    placeholder="Enter vendor name"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Email <span className="text-red-500">*</span>
-                                </label>
-                                <input 
-                                    type="email" 
-                                    required 
-                                    name="email" 
-                                    value={formdata.email} 
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2.5 text-gray-900 dark:text-white bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm"
-                                    placeholder="Enter email address"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Password <span className="text-red-500">*</span>
-                                </label>
-                                <input 
-                                    type="password" 
-                                    required 
-                                    name="password" 
-                                    value={formdata.password} 
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2.5 text-gray-900 dark:text-white bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm"
-                                    placeholder="Enter password"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Contact Number <span className="text-red-500">*</span>
-                                </label>
-                                <input 
-                                    type="text" 
-                                    required 
-                                    maxLength={10} 
-                                    minLength={10} 
-                                    pattern="[0-9]*" 
-                                    name="contactNumber" 
-                                    value={formdata.contactNumber} 
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2.5 text-gray-900 dark:text-white bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm"
-                                    placeholder="10 digit mobile number"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Landmark</label>
-                                <input 
-                                    type="text" 
-                                    name="landmark" 
-                                    onChange={handleAddressChange}
-                                    disabled={isLoadingAddress}
-                                    value={address?.landmark || ""}
-                                    className={`w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm ${
-                                        isLoadingAddress 
-                                            ? "bg-gray-100 dark:bg-slate-600 text-gray-400 dark:text-gray-500 cursor-not-allowed" 
-                                            : "bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                                    }`}
-                                    placeholder="e.g., Near Metro Station"
-                                />
-                            </div>
-
-                            <div className="border-t border-gray-200 dark:border-slate-700 pt-5 mt-5">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div>
-                                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Address Details</h3>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Auto-filled from selected location</p>
-                                    </div>
-                                    {isLoadingAddress && (
-                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800">
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 dark:border-blue-400"></div>
-                                            <span className="text-xs font-medium text-blue-700 dark:text-blue-300">Fetching address...</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="relative">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Full Address <span className="text-red-500">*</span>
-                                </label>
-                                <textarea 
-                                    name="formatted" 
-                                    value={address?.formatted || ""} 
-                                    onChange={handleAddressChange}
-                                    rows={3}
-                                    disabled={isLoadingAddress}
-                                    className={`w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 transition-colors text-sm resize-none ${
-                                        isLoadingAddress 
-                                            ? "bg-gray-100 dark:bg-slate-600 text-gray-400 dark:text-gray-500 cursor-not-allowed" 
-                                            : "bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                                    }`}
-                                    placeholder={isLoadingAddress ? "Fetching address..." : "Address will be auto-filled"}
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Area/Neighbourhood</label>
-                                    <input 
-                                        type="text" 
-                                        name="area" 
-                                        disabled={isLoadingAddress} 
-                                        value={address?.area || ""} 
-                                        onChange={handleAddressChange}
-                                        className={`w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm ${
-                                            isLoadingAddress 
-                                                ? "bg-gray-100 dark:bg-slate-600 text-gray-400 dark:text-gray-500 cursor-not-allowed" 
-                                                : "bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                                        }`}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        City <span className="text-red-500">*</span>
-                                    </label>
-                                    <input 
-                                        type="text" 
-                                        name="city" 
-                                        disabled={isLoadingAddress} 
-                                        value={address?.city || ""} 
-                                        onChange={handleAddressChange} 
-                                        required
-                                        className={`w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm ${
-                                            isLoadingAddress 
-                                                ? "bg-gray-100 dark:bg-slate-600 text-gray-400 dark:text-gray-500 cursor-not-allowed" 
-                                                : "bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                                        }`}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        State <span className="text-red-500">*</span>
-                                    </label>
-                                    <input 
-                                        type="text" 
-                                        name="state" 
-                                        disabled={isLoadingAddress} 
-                                        value={address?.state || ""} 
-                                        onChange={handleAddressChange} 
-                                        required
-                                        className={`w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm ${
-                                            isLoadingAddress 
-                                                ? "bg-gray-100 dark:bg-slate-600 text-gray-400 dark:text-gray-500 cursor-not-allowed" 
-                                                : "bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                                        }`}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Pincode <span className="text-red-500">*</span>
-                                    </label>
-                                    <input 
-                                        type="text" 
-                                        name="pincode" 
-                                        disabled={isLoadingAddress} 
-                                        value={address?.pincode || ""} 
-                                        onChange={handleAddressChange} 
-                                        required
-                                        className={`w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm ${
-                                            isLoadingAddress 
-                                                ? "bg-gray-100 dark:bg-slate-600 text-gray-400 dark:text-gray-500 cursor-not-allowed" 
-                                                : "bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                                        }`}
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Country</label>
-                                <input 
-                                    type="text" 
-                                    name="country" 
-                                    disabled={isLoadingAddress} 
-                                    value={address?.country || ""} 
-                                    onChange={handleAddressChange}
-                                    className={`w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-colors text-sm ${
-                                        isLoadingAddress 
-                                            ? "bg-gray-100 dark:bg-slate-600 text-gray-400 dark:text-gray-500 cursor-not-allowed" 
-                                            : "bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                                    }`}
-                                />
-                            </div>
-
-                            <button 
-                                type="submit" 
-                                onClick={handleSubmit}
-                                disabled={isSubmitting}
-                                className={`w-full mt-6 px-6 py-3 rounded-lg font-medium text-sm transition-all ${
-                                    isSubmitting 
-                                        ? "bg-gray-400 text-white cursor-not-allowed"
-                                        : "bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:ring-offset-2 shadow-sm"
-                                }`}
-                            >
-                                {isSubmitting ? "Submitting..." : "Add Vendor"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_460px]">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-card shadow-sm dark:border-slate-600/80 dark:bg-slate-800/80">
+          <div className="border-b border-slate-200/80 bg-slate-50 px-6 py-4 dark:border-slate-700 dark:bg-slate-700/50">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-white">Select Location</h2>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Click on map or search an address</p>
+          </div>
+          <div className="relative h-[500px] w-full">
+            <MapBase
+              onLocationSelect={(lat, lng) => {
+                setLocation({ lat, lng });
+                handleGetAddress(lat, lng);
+              }}
+            />
+          </div>
+          {location ? (
+            <div className="border-t border-slate-200/80 bg-amber-50/70 px-6 py-3 dark:border-slate-700 dark:bg-amber-900/20">
+              <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">
+                Location Selected:{" "}
+                <span className="font-medium text-amber-700 dark:text-amber-300">
+                  {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
+                </span>
+              </p>
             </div>
+          ) : null}
         </div>
-    );
+
+        <div className="relative rounded-2xl border border-slate-200/80 bg-card shadow-sm dark:border-slate-600/80 dark:bg-slate-800/80">
+          <div className="border-b border-slate-200/80 bg-slate-50 px-6 py-4 dark:border-slate-700 dark:bg-slate-700/50">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-white">Vendor Details</h2>
+          </div>
+
+          {isLoadingAddress ? (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/95 backdrop-blur-sm dark:bg-slate-800/95">
+              <div className="text-center">
+                <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">Fetching address details...</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Please wait while we load address information
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="space-y-5 p-6">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Vendor Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                name="name"
+                value={formdata.name}
+                onChange={handleChange}
+                className={inputClass}
+                placeholder="Enter vendor name"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Email <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="email"
+                required
+                name="email"
+                value={formdata.email}
+                onChange={handleChange}
+                className={inputClass}
+                placeholder="Enter email address"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Password <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="password"
+                required
+                name="password"
+                value={formdata.password}
+                onChange={handleChange}
+                className={inputClass}
+                placeholder="Enter password"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Contact Number <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                maxLength={10}
+                minLength={10}
+                pattern="[0-9]*"
+                name="contactNumber"
+                value={formdata.contactNumber}
+                onChange={handleChange}
+                className={inputClass}
+                placeholder="10 digit mobile number"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Landmark</label>
+              <input
+                type="text"
+                name="landmark"
+                onChange={handleAddressChange}
+                disabled={isLoadingAddress}
+                value={address?.landmark || ""}
+                className={`${inputClass} ${isLoadingAddress ? disabledInputClass : ""}`}
+                placeholder="e.g., Near Metro Station"
+              />
+            </div>
+
+            <div className="border-t border-slate-200/80 pt-5 dark:border-slate-700">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Address Details</h3>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Auto-filled from selected location</p>
+                </div>
+                {isLoadingAddress ? (
+                  <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 dark:border-amber-800/80 dark:bg-amber-900/20">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-600 border-t-transparent dark:border-amber-400" />
+                    <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">Fetching address...</span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Full Address <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                name="formatted"
+                value={address?.formatted || ""}
+                onChange={handleAddressChange}
+                rows={3}
+                disabled={isLoadingAddress}
+                className={`w-full resize-none rounded-xl border px-3 py-2.5 text-sm shadow-sm transition-colors ${
+                  isLoadingAddress
+                    ? disabledInputClass
+                    : "border-slate-300 bg-white text-slate-900 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                }`}
+                placeholder={isLoadingAddress ? "Fetching address..." : "Address will be auto-filled"}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Area/Neighbourhood</label>
+                <input
+                  type="text"
+                  name="area"
+                  disabled={isLoadingAddress}
+                  value={address?.area || ""}
+                  onChange={handleAddressChange}
+                  className={`${inputClass} ${isLoadingAddress ? disabledInputClass : ""}`}
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  City <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="city"
+                  disabled={isLoadingAddress}
+                  value={address?.city || ""}
+                  onChange={handleAddressChange}
+                  required
+                  className={`${inputClass} ${isLoadingAddress ? disabledInputClass : ""}`}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  State <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="state"
+                  disabled={isLoadingAddress}
+                  value={address?.state || ""}
+                  onChange={handleAddressChange}
+                  required
+                  className={`${inputClass} ${isLoadingAddress ? disabledInputClass : ""}`}
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Pincode <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="pincode"
+                  disabled={isLoadingAddress}
+                  value={address?.pincode || ""}
+                  onChange={handleAddressChange}
+                  required
+                  className={`${inputClass} ${isLoadingAddress ? disabledInputClass : ""}`}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Country</label>
+              <input
+                type="text"
+                name="country"
+                disabled={isLoadingAddress}
+                value={address?.country || ""}
+                onChange={handleAddressChange}
+                className={`${inputClass} ${isLoadingAddress ? disabledInputClass : ""}`}
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-slate-200/80 pt-5 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => router.push("/vendor")}
+                className="inline-flex h-10 items-center rounded-xl border border-slate-300 px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className={`inline-flex h-10 items-center rounded-xl px-5 text-sm font-semibold text-white shadow-sm transition-colors ${
+                  isSubmitting
+                    ? "cursor-not-allowed bg-amber-400"
+                    : "bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                }`}
+              >
+                {isSubmitting ? "Submitting..." : "Add Vendor"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

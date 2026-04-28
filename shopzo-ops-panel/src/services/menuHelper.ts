@@ -1,25 +1,20 @@
-type User = {
-  department?: { name: string } | string;
-  role?: { name: string } | string;
-};
+import type { User } from "@/store/slices/authSlice";
 
 const nameOf = (v: { name?: string } | string | undefined) =>
   typeof v === "object" && v ? v.name : v;
 
-const getheaderMenuItems = (
+const getSidebarMenuItems = (
   user: User | null,
 ): { label: string; href: string }[] => {
   const dept = nameOf(user?.department);
   const roleName = nameOf(user?.role);
-
-  console.log("Department:", dept);
-  console.log("Role:", roleName);
 
   if (dept === "Admin") {
     switch (roleName) {
       case "Admin":
         return [
           { label: "Dashboard", href: "/dashboards/admin" },
+          { label: "Analytics", href: "#" },
           { label: "Users", href: "/users" },
           { label: "Warehouses", href: "/warehouse" },
           { label: "Vendors", href: "/vendor" }, 
@@ -89,4 +84,7 @@ const getheaderMenuItems = (
   return [];
 };
 
-export { getheaderMenuItems };
+/** @deprecated use getSidebarMenuItems */
+const getheaderMenuItems = getSidebarMenuItems;
+
+export { getSidebarMenuItems, getheaderMenuItems };

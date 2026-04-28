@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Header from "./components/Header";
+import ThemeInit from "./components/ThemeInit";
+import AppChrome from "./components/AppChrome";
 import Providers from "./provider";
 import "./globals.css";
 
@@ -30,14 +31,14 @@ export default function RootLayout({
 
   
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+      <ThemeInit />
       <Providers>
-        <Header />       
-         {children}
-         </Providers>
+        <AppChrome>{children}</AppChrome>
+      </Providers>
 
 
       </body>

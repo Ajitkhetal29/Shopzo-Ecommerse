@@ -1,26 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
-import { RootState } from "@/store";
+import type { RootState } from "@/store";
 
 export default function Home() {
   const router = useRouter();
   const user = useSelector((state: RootState) => state.auth.user);
-  const [hasChecked, setHasChecked] = useState(false);
 
-  useEffect(() => {
-    // Give Header time to verify auth (small delay)
-    const timer = setTimeout(() => {
-      setHasChecked(true);
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Helper function to get department code
-  const getDepartmentCode = (department: any): string => {
+  const getDepartmentCode = (department: { code?: string; name?: string } | string | undefined): string => {
     if (!department) return "";
     if (typeof department === "string") return department.toLowerCase();
     if (department.code) return department.code.toLowerCase();
@@ -29,26 +18,20 @@ export default function Home() {
   };
 
   useEffect(() => {
-    // Wait for auth check to complete
-    if (!hasChecked) return;
+    if (!user) return;
+    const deptCode = getDepartmentCode(user.department);
+    if (deptCode === "admin") router.replace("/dashboards/admin");
+    else if (deptCode === "delivery") router.replace("/dashboards/delivery");
+    else if (deptCode === "support") router.replace("/dashboards/support");
+    else if (deptCode === "vendor") router.replace("/dashboards/vendor");
+  }, [user, router]);
 
-    // If user is logged in, redirect to their dashboard based on department
-    if (user) {
-      const deptCode = getDepartmentCode(user.department);
-      if (deptCode === "admin") router.push("/dashboards/admin");
-      else if (deptCode === "delivery") router.push("/dashboards/delivery");
-      else if (deptCode === "support") router.push("/dashboards/support");
-      else if (deptCode === "vendor") router.push("/dashboards/vendor");
-    } else {
-      // If not logged in, redirect to login
-      router.push("/login");
-    }
-  }, [user, router, hasChecked]);
-
-  // Show loading while checking auth
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <p>Loading...</p>
+    <div className="flex min-h-dvh items-center justify-center bg-slate-100 dark:bg-slate-950">
+      <div className="text-center">
+        <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
+        <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Redirecting…</p>
+      </div>
     </div>
   );
 }
